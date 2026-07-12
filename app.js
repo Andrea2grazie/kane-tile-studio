@@ -549,10 +549,10 @@ const LOCAL_FONT_STACKS = {
   droid_serif: '"Palatino Linotype", Palatino, Georgia, serif'
 };
 
-function createLocalTextTexture(text, fontKey) {
+function createLocalTextTexture(text, fontKey, requestedSizeMm) {
   const canvas = document.createElement("canvas");
   canvas.width = 2048;
-  canvas.height = 640;
+  canvas.height = 768;
 
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -560,24 +560,43 @@ function createLocalTextTexture(text, fontKey) {
   const fontStack =
     LOCAL_FONT_STACKS[fontKey] || LOCAL_FONT_STACKS.helvetiker;
 
-  let fontSize = 360;
-  const maxWidth = canvas.width * 0.88;
+  // La dimensione selezionata influenza realmente la scala del testo.
+  const normalizedSize = THREE.MathUtils.clamp(
+    (requestedSizeMm - 6) / (32 - 6),
+    0,
+    1
+  );
+
+  let fontSize = Math.round(
+    THREE.MathUtils.lerp(170, 520, normalizedSize)
+  );
+
+  const maxWidth = canvas.width * 0.90;
 
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillStyle = "#ffffff";
+  ctx.fillStyle = "rgba(255,255,255,1)";
 
-  while (fontSize > 54) {
+  while (fontSize > 70) {
     ctx.font = `700 ${fontSize}px ${fontStack}`;
     if (ctx.measureText(text).width <= maxWidth) break;
     fontSize -= 8;
   }
 
   ctx.font = `700 ${fontSize}px ${fontStack}`;
+
+  const metrics = ctx.measureText(text);
+  const measuredWidth = Math.max(1, metrics.width);
+  const measuredHeight = Math.max(
+    1,
+    (metrics.actualBoundingBoxAscent || fontSize * 0.75) +
+    (metrics.actualBoundingBoxDescent || fontSize * 0.20)
+  );
+
   ctx.fillText(text, canvas.width / 2, canvas.height / 2);
 
   const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.NoColorSpace;
+  texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = THREE.ClampToEdgeWrapping;
   texture.wrapT = THREE.ClampToEdgeWrapping;
   texture.minFilter = THREE.LinearMipmapLinearFilter;
@@ -589,19 +608,43 @@ function createLocalTextTexture(text, fontKey) {
   );
   texture.needsUpdate = true;
 
-  return texture;
+  return {
+    texture,
+    aspect: measuredWidth / measuredHeight
+  };
 }
 
 function buildLocalTextSurface(w, h, baseMaterial, baseTop) {
   const text = state.appliedText.trim();
   if (!text) return null;
 
-  const texture = createLocalTextTexture(text, state.textFont);
+  const { texture, aspect } = createLocalTextTexture(
+    text,
+    state.textFont,
+    state.textSize
+  );
+
+  // Altezza reale della scritta in funzione dei millimetri selezionati.
+  let textHeight = state.textSize / 100;
+  textHeight = Math.min(textHeight, h * 0.30);
+
+  let textWidth = textHeight * aspect;
+  const maxWidth = w * 0.70;
+
+  if (textWidth > maxWidth) {
+    const scale = maxWidth / textWidth;
+    textWidth *= scale;
+    textHeight *= scale;
+  }
+
+  const segmentsX = Math.max(120, Math.round(320 * (textWidth / maxWidth)));
+  const segmentsY = 110;
+
   const geometry = new THREE.PlaneGeometry(
-    w * 0.70,
-    h * 0.27,
-    24,
-    10
+    textWidth,
+    textHeight,
+    segmentsX,
+    segmentsY
   );
 
   const textColor = baseMaterial.color.clone();
@@ -609,38 +652,47 @@ function buildLocalTextSurface(w, h, baseMaterial, baseTop) {
   if (state.textNegative) {
     textColor.multiplyScalar(0.58);
   } else {
-    textColor.offsetHSL(0, 0, 0.08);
+    textColor.offsetHSL(0, 0, 0.035);
   }
+
+  const depthWorld = state.textDepth / 100;
 
   const material = new THREE.MeshPhysicalMaterial({
     color: textColor,
+    map: texture,
     alphaMap: texture,
+    displacementMap: texture,
+    displacementScale:
+      (state.textNegative ? -1 : 1) * depthWorld,
+    displacementBias:
+      state.textNegative ? depthWorld : 0,
     bumpMap: texture,
     bumpScale:
-      (state.textNegative ? -1 : 1) * (state.textDepth / 90),
+      (state.textNegative ? -1 : 1) * (depthWorld * 0.45),
     transparent: true,
-    alphaTest: 0.10,
+    alphaTest: 0.32,
+    opacity: 1,
     depthWrite: true,
     roughness: state.textNegative
-      ? Math.min(1, baseMaterial.roughness + 0.18)
-      : Math.max(0.16, baseMaterial.roughness - 0.06),
+      ? Math.min(1, baseMaterial.roughness + 0.16)
+      : Math.max(0.16, baseMaterial.roughness - 0.04),
     metalness: 0,
-    clearcoat: state.textNegative ? 0.10 : baseMaterial.clearcoat,
+    clearcoat: state.textNegative ? 0.08 : baseMaterial.clearcoat,
     clearcoatRoughness: state.textNegative
-      ? 0.55
+      ? 0.58
       : baseMaterial.clearcoatRoughness,
     envMapIntensity: 0.38,
     side: THREE.DoubleSide,
     polygonOffset: true,
-    polygonOffsetFactor: -2,
-    polygonOffsetUnits: -2
+    polygonOffsetFactor: -3,
+    polygonOffsetUnits: -3
   });
 
   const mesh = new THREE.Mesh(geometry, material);
   mesh.position.set(
     0,
     0,
-    baseTop + (state.textNegative ? 0.0045 : 0.009)
+    baseTop + (state.textNegative ? 0.004 : 0.007)
   );
   mesh.renderOrder = 10;
   mesh.userData.disposableTexture = texture;
@@ -840,10 +892,18 @@ document.querySelector("#textFont").addEventListener("change", event => {
 
 document.querySelector("#textSize").addEventListener("input", event => {
   state.textSize = Number(event.target.value);
+
+  document.querySelector("#textSizeOut").value =
+    `${state.textSize} mm`;
   document.querySelector("#textSizeOut").textContent =
     `${state.textSize} mm`;
 
-  if (state.appliedText) rebuildTile();
+  if (state.appliedText) {
+    rebuildTile();
+    textApplyStatus.textContent =
+      `Dimensione aggiornata: ${state.textSize} mm`;
+    textApplyStatus.className = "text-apply-status success";
+  }
 });
 
 document.querySelector("#textNegative").addEventListener("change", event => {
@@ -853,10 +913,17 @@ document.querySelector("#textNegative").addEventListener("change", event => {
 
 document.querySelector("#textDepth").addEventListener("input", event => {
   state.textDepth = Number(event.target.value);
-  document.querySelector("#textDepthOut").textContent =
-    `${state.textDepth.toFixed(1)} mm`;
 
-  if (state.appliedText) rebuildTile();
+  const formattedDepth = `${state.textDepth.toFixed(1)} mm`;
+  document.querySelector("#textDepthOut").value = formattedDepth;
+  document.querySelector("#textDepthOut").textContent = formattedDepth;
+
+  if (state.appliedText) {
+    rebuildTile();
+    textApplyStatus.textContent =
+      `Profondità aggiornata: ${formattedDepth}`;
+    textApplyStatus.className = "text-apply-status success";
+  }
 });
 
 document.querySelector("#frameStyle").addEventListener("change", event => {

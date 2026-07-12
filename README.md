@@ -218,3 +218,15 @@ alcuni secondi. La risoluzione viene automaticamente bilanciata per non bloccare
 - scritta applicata immediatamente;
 - alpha map e bump map dedicate per rendere leggibili le lettere;
 - nessun errore di connessione durante `Applica scritta`.
+
+
+## Aggiornamento v19 — scritta ritagliata e dimensione reale
+
+- rimosso l’effetto rettangolo/plane visibile;
+- canvas con sfondo realmente trasparente;
+- alpha map e alpha test ritagliano soltanto le lettere;
+- dimensione testo collegata alla geometria;
+- il cursore modifica realmente altezza e larghezza della scritta;
+- valore numerico aggiornato immediatamente;
+- profondità aggiornata immediatamente;
+- rilievo positivo e negativo mantenuti.
