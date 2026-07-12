@@ -185,3 +185,14 @@ alcuni secondi. La risoluzione viene automaticamente bilanciata per non bloccare
 - testo più evidente e centrato;
 - zoom manuale più vicino;
 - inquadratura iniziale meno ravvicinata su desktop.
+
+
+## Aggiornamento v16 — scritta con geometria 3D reale
+
+- eliminata la scritta simulata tramite displacement map;
+- introdotta `TextGeometry` con lettere realmente estruse;
+- caricamento del font al click su `Applica scritta`;
+- centratura automatica della geometria;
+- adattamento automatico alle dimensioni della mattonella;
+- effetto inciso reso tramite posizionamento parziale nella superficie;
+- maggiore compatibilità con Safari e iPhone.
