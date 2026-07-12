@@ -1,8 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
-import { FontLoader } from "three/addons/loaders/FontLoader.js";
-import { TextGeometry } from "three/addons/geometries/TextGeometry.js";
 
 
 const GLAZES = {
@@ -108,25 +106,6 @@ scene.add(tileGroup);
 
 
 
-const fontLoader = new FontLoader();
-const fontCache = new Map();
-let textBuildToken = 0;
-
-const FONT_URLS = {
-  helvetiker: "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/fonts/helvetiker_regular.typeface.json",
-  optimer: "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/fonts/optimer_regular.typeface.json",
-  gentilis: "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/fonts/gentilis_regular.typeface.json",
-  droid_serif: "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/fonts/droid/droid_serif_regular.typeface.json"
-};
-
-async function loadFont(fontKey) {
-  if (fontCache.has(fontKey)) return fontCache.get(fontKey);
-
-  const url = FONT_URLS[fontKey] || FONT_URLS.helvetiker;
-  const font = await fontLoader.loadAsync(url);
-  fontCache.set(fontKey, font);
-  return font;
-}
 
 function createCeramicNormalTexture(size = 256) {
   const canvas = document.createElement("canvas");
@@ -183,12 +162,16 @@ const state = {
   heightWidth: 0,
   heightHeight: 0,
   originalFile: null,
+  serviceType: "text",
   tileText: "",
   textFont: "helvetiker",
-  textSize: 14
+  textSize: 14,
+  textNegative: false,
+  textDepth: 2
 };
 
 function disposeObject(obj) {
+  obj.userData?.disposableTexture?.dispose?.();
   obj.geometry?.dispose();
   if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
   else obj.material?.dispose();
@@ -414,58 +397,77 @@ function buildHeightmapRelief(w, h, material, baseTop) {
 
 
 
-async function addCenteredText(w, h, material, baseTop) {
-  const rawText = state.tileText.trim();
-  if (!rawText) return;
 
-  const token = ++textBuildToken;
 
-  try {
-    const font = await loadFont(state.textFont);
-    if (token !== textBuildToken) return;
+const TEXT_FONT_STACKS = {
+  helvetiker: '"Arial", "Helvetica Neue", sans-serif',
+  optimer: '"Trebuchet MS", "Avenir Next", sans-serif',
+  gentilis: 'Georgia, "Times New Roman", serif',
+  droid_serif: '"Palatino Linotype", Palatino, Georgia, serif'
+};
 
-    const sizeWorld = state.textSize / 100;
-    const depthWorld = Math.max(0.012, state.imageRelief / 180);
+function createTextMaskTexture(text, fontKey) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1536;
+  canvas.height = 512;
 
-    const geometry = new TextGeometry(rawText, {
-      font,
-      size: sizeWorld,
-      depth: depthWorld,
-      curveSegments: 18,
-      bevelEnabled: true,
-      bevelThickness: 0.0025,
-      bevelSize: 0.0018,
-      bevelOffset: 0,
-      bevelSegments: 3
-    });
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    geometry.computeBoundingBox();
-    const box = geometry.boundingBox;
-    const width = box.max.x - box.min.x;
-    const height = box.max.y - box.min.y;
+  // Sfondo nero e testo bianco: il bianco genera il rilievo/bump.
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    const maxTextW = w * 0.72;
-    const maxTextH = h * 0.24;
-    const fitScale = Math.min(
-      1,
-      maxTextW / Math.max(width, 0.0001),
-      maxTextH / Math.max(height, 0.0001)
-    );
+  const fontStack = TEXT_FONT_STACKS[fontKey] || TEXT_FONT_STACKS.helvetiker;
+  let fontSize = 260;
+  const maxWidth = canvas.width * 0.86;
 
-    geometry.translate(
-      -(box.min.x + width / 2),
-      -(box.min.y + height / 2),
-      0
-    );
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#ffffff";
 
-    const mesh = new THREE.Mesh(geometry, material.clone());
-    mesh.scale.setScalar(fitScale);
-    mesh.position.set(0, 0, baseTop + 0.004);
-
-    tileGroup.add(mesh);
-  } catch (error) {
-    console.error("Errore caricamento font:", error);
+  while (fontSize > 40) {
+    ctx.font = `700 ${fontSize}px ${fontStack}`;
+    if (ctx.measureText(text).width <= maxWidth) break;
+    fontSize -= 6;
   }
+
+  ctx.font = `700 ${fontSize}px ${fontStack}`;
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.NoColorSpace;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = true;
+  texture.anisotropy = Math.min(16, renderer.capabilities.getMaxAnisotropy());
+  texture.needsUpdate = true;
+
+  return texture;
+}
+
+function buildRealtimeTextSurface(w, h, baseMaterial, baseTop) {
+  const text = state.tileText.trim();
+  if (!text) return null;
+
+  const innerW = w * 0.72;
+  const innerH = h * 0.24;
+  const geometry = new THREE.PlaneGeometry(innerW, innerH, 1, 1);
+
+  const maskTexture = createTextMaskTexture(text, state.textFont);
+  const material = baseMaterial.clone();
+  material.bumpMap = maskTexture;
+  material.bumpScale = (state.textNegative ? -1 : 1) * (state.textDepth / 100);
+  material.roughness = Math.min(1, material.roughness + 0.04);
+  material.needsUpdate = true;
+
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.position.set(0, 0, baseTop + 0.004);
+  mesh.userData.disposableTexture = maskTexture;
+
+  return mesh;
 }
 
 function flashViewer() {
@@ -511,16 +513,17 @@ function rebuildTile() {
   const baseTop = thickness / 2;
   tileGroup.add(buildStandardFrame(w, h, reliefMat, baseTop));
 
-  if (state.textureEnabled && state.heightData) {
+  if (state.serviceType === "image" && state.textureEnabled && state.heightData) {
     tileGroup.add(buildHeightmapRelief(w, h, reliefMat, baseTop));
+  }
+
+  if (state.serviceType === "text") {
+    const textSurface = buildRealtimeTextSurface(w, h, reliefMat, baseTop);
+    if (textSurface) tileGroup.add(textSurface);
   }
 
   const maxSide = Math.max(w,h);
   tileGroup.scale.setScalar(1.0 / maxSide);
-
-  addCenteredText(w, h, reliefMat, baseTop).then(() => {
-    fitCameraToTile();
-  });
 
   updateUi();
   fitCameraToTile();
@@ -547,6 +550,7 @@ function updateUi() {
   imageReliefOut.textContent = `${state.imageRelief.toFixed(1)} mm`;
   imageContrastOut.textContent = `${state.imageContrast}%`;
   textSizeOut.textContent = `${state.textSize} mm`;
+  textDepthOut.textContent = `${state.textDepth.toFixed(1)} mm`;
 
   const glaze = GLAZES[state.glaze] || GLAZES.sabbia;
   const dimensions = `${state.width} × ${state.height} mm`;
@@ -581,6 +585,31 @@ document.querySelector("#invertRelief").addEventListener("change", e => {
 });
 
 
+
+const textSection = document.querySelector(".text-section");
+const reliefSection = document.querySelector(".relief-section");
+const serviceCards = document.querySelectorAll(".service-card");
+
+function updateServiceVisibility() {
+  const isText = state.serviceType === "text";
+  textSection.hidden = !isText;
+  reliefSection.hidden = isText;
+
+  serviceCards.forEach(card => {
+    const radio = card.querySelector('input[name="serviceType"]');
+    card.classList.toggle("active", radio.value === state.serviceType);
+    radio.checked = radio.value === state.serviceType;
+  });
+}
+
+document.querySelectorAll('input[name="serviceType"]').forEach(radio => {
+  radio.addEventListener("change", event => {
+    state.serviceType = event.target.value;
+    updateServiceVisibility();
+    rebuildTile();
+  });
+});
+
 document.querySelector("#tileText").addEventListener("input", event => {
   state.tileText = event.target.value;
   rebuildTile();
@@ -593,6 +622,16 @@ document.querySelector("#textFont").addEventListener("change", event => {
 
 document.querySelector("#textSize").addEventListener("input", event => {
   state.textSize = Number(event.target.value);
+  rebuildTile();
+});
+
+document.querySelector("#textNegative").addEventListener("change", event => {
+  state.textNegative = event.target.checked;
+  rebuildTile();
+});
+
+document.querySelector("#textDepth").addEventListener("input", event => {
+  state.textDepth = Number(event.target.value);
   rebuildTile();
 });
 
@@ -790,8 +829,14 @@ orderForm.addEventListener("submit", async event => {
     return;
   }
 
-  if (!state.originalFile || !state.heightData) {
+  if (state.serviceType === "image" && (!state.originalFile || !state.heightData)) {
     orderStatus.textContent = "Carica prima l’immagine da trasformare in rilievo.";
+    orderStatus.className = "order-status error";
+    return;
+  }
+
+  if (state.serviceType === "text" && !state.tileText.trim()) {
+    orderStatus.textContent = "Inserisci prima la scritta da applicare alla mattonella.";
     orderStatus.className = "order-status error";
     return;
   }
@@ -816,19 +861,23 @@ orderForm.addEventListener("submit", async event => {
 
   const orderId = crypto.randomUUID();
   const orderCode = makeOrderCode();
-  const extension = safeExtension(state.originalFile);
-  const filePath = `${orderId}/original.${extension}`;
+  const extension = state.originalFile ? safeExtension(state.originalFile) : "txt";
+  const filePath = state.serviceType === "image"
+    ? `${orderId}/original.${extension}`
+    : `${orderId}/text-order.txt`;
 
   try {
-    const { error: uploadError } = await supabaseClient.storage
-      .from(cfg.storageBucket || "order-files")
-      .upload(filePath, state.originalFile, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: state.originalFile.type
-      });
+    if (state.serviceType === "image") {
+      const { error: uploadError } = await supabaseClient.storage
+        .from(cfg.storageBucket || "order-files")
+        .upload(filePath, state.originalFile, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: state.originalFile.type
+        });
 
-    if (uploadError) throw uploadError;
+      if (uploadError) throw uploadError;
+    }
 
     const configuration = {
       width_mm: state.width,
@@ -840,9 +889,12 @@ orderForm.addEventListener("submit", async event => {
       glaze_code: state.glaze,
       glaze_label: (GLAZES[state.glaze] || GLAZES.sabbia).label,
       glaze_preview_color: (GLAZES[state.glaze] || GLAZES.sabbia).color,
-      custom_text: state.tileText.trim(),
-      text_font: state.textFont,
-      text_size_mm: state.textSize,
+      service_type: state.serviceType,
+      custom_text: state.serviceType === "text" ? state.tileText.trim() : "",
+      text_font: state.serviceType === "text" ? state.textFont : null,
+      text_size_mm: state.serviceType === "text" ? state.textSize : null,
+      text_negative: state.serviceType === "text" ? state.textNegative : null,
+      text_depth_mm: state.serviceType === "text" ? state.textDepth : null,
       standard_frame: true,
       estimated_price_per_sqm_eur: Number(
         estimatePricePerSquareMeter().toFixed(2)
@@ -864,9 +916,11 @@ orderForm.addEventListener("submit", async event => {
       });
 
     if (insertError) {
-      await supabaseClient.storage
-        .from(cfg.storageBucket || "order-files")
-        .remove([filePath]);
+      if (state.serviceType === "image") {
+        await supabaseClient.storage
+          .from(cfg.storageBucket || "order-files")
+          .remove([filePath]);
+      }
       throw insertError;
     }
 
@@ -947,5 +1001,6 @@ function animate() {
 }
 
 resize();
+updateServiceVisibility();
 rebuildTile();
 animate();

@@ -138,3 +138,16 @@ alcuni secondi. La risoluzione viene automaticamente bilanciata per non bloccare
 - elaborazione immagine fino a 1536 px su desktop e 1024 px su mobile;
 - mesh rilievo fino a circa 680 segmenti sul lato lungo;
 - qualità ancora superiore, con maggiore carico su dispositivi meno potenti.
+
+
+## Aggiornamento v11
+
+- selezione obbligatoria e mutuamente esclusiva:
+  - Scritta su mattonella;
+  - Immagine in rilievo.
+- la scritta viene visualizzata in tempo reale durante la digitazione;
+- rendering del testo tramite texture canvas ad alta definizione;
+- scelta tra scritta in rilievo e scritta incisa;
+- profondità della scritta regolabile;
+- le sezioni non pertinenti vengono nascoste automaticamente;
+- l’ordine Supabase salva il tipo di servizio scelto.

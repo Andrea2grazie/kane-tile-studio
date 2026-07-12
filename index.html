@@ -88,7 +88,29 @@
       <div class="section-divider" aria-hidden="true"><span></span></div>
 
       
+      
       <div class="section-divider" aria-hidden="true"><span></span></div>
+
+      <section class="editor-section service-section">
+        <div class="section-heading">
+          <span>TIPO DI PERSONALIZZAZIONE</span>
+          <strong>Seleziona un solo servizio</strong>
+        </div>
+
+        <div class="service-choice" role="radiogroup" aria-label="Tipo di personalizzazione">
+          <label class="service-card active">
+            <input type="radio" name="serviceType" value="text" checked />
+            <span class="service-card-title">Scritta su mattonella</span>
+            <small>Inserisci una frase centrale, in rilievo o incisa.</small>
+          </label>
+
+          <label class="service-card">
+            <input type="radio" name="serviceType" value="image" />
+            <span class="service-card-title">Immagine in rilievo</span>
+            <small>Carica un logo, un disegno o una fotografia.</small>
+          </label>
+        </div>
+      </section>
 
       <section class="editor-section text-section">
         <div class="section-heading">
@@ -121,9 +143,25 @@
             <input id="textSize" type="range" min="6" max="32" value="14" step="1" />
           </div>
         </div>
+
+        <label class="toggle-row text-negative-toggle">
+          <span>
+            <strong>Scritta incisa</strong>
+            <small>Seleziona per ottenere la scritta in negativo anziché in rilievo.</small>
+          </span>
+          <input id="textNegative" type="checkbox" />
+        </label>
+
+        <div class="control-group">
+          <div class="label-row">
+            <label for="textDepth">Profondità scritta</label>
+            <output id="textDepthOut">2.0 mm</output>
+          </div>
+          <input id="textDepth" type="range" min="0.5" max="5" value="2" step="0.5" />
+        </div>
       </section>
 
-      <section class="relief-section">
+      <section class="relief-section" hidden>
         <div class="relief-section-title">
           <span>RILIEVO MATTONELLA</span>
           <strong>Crea il bassorilievo</strong>
