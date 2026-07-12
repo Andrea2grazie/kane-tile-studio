@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { FontLoader } from "three/addons/loaders/FontLoader.js";
+import { TextGeometry } from "three/addons/geometries/TextGeometry.js";
 
 
 const GLAZES = {
@@ -105,6 +107,27 @@ tileGroup.rotation.y = 0.24;
 scene.add(tileGroup);
 
 
+
+const fontLoader = new FontLoader();
+const fontCache = new Map();
+let textBuildToken = 0;
+
+const FONT_URLS = {
+  helvetiker: "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/fonts/helvetiker_regular.typeface.json",
+  optimer: "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/fonts/optimer_regular.typeface.json",
+  gentilis: "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/fonts/gentilis_regular.typeface.json",
+  droid_serif: "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/fonts/droid/droid_serif_regular.typeface.json"
+};
+
+async function loadFont(fontKey) {
+  if (fontCache.has(fontKey)) return fontCache.get(fontKey);
+
+  const url = FONT_URLS[fontKey] || FONT_URLS.helvetiker;
+  const font = await fontLoader.loadAsync(url);
+  fontCache.set(fontKey, font);
+  return font;
+}
+
 function createCeramicNormalTexture(size = 256) {
   const canvas = document.createElement("canvas");
   canvas.width = size;
@@ -159,7 +182,10 @@ const state = {
   heightData: null,
   heightWidth: 0,
   heightHeight: 0,
-  originalFile: null
+  originalFile: null,
+  tileText: "",
+  textFont: "helvetiker",
+  textSize: 14
 };
 
 function disposeObject(obj) {
@@ -205,6 +231,29 @@ function extrudedShape(shape, depth, material, z) {
   mesh.position.z = z;
   return mesh;
 }
+
+function buildStandardFrame(w, h, material, baseTop) {
+  const frameDepth = 0.018;
+  const outer = roundedRectShape(
+    w * 0.90,
+    h * 0.90,
+    Math.min(w, h) * 0.035
+  );
+  const inner = roundedRectShape(
+    w * 0.82,
+    h * 0.82,
+    Math.min(w, h) * 0.026
+  );
+  outer.holes.push(inner);
+
+  return extrudedShape(
+    outer,
+    frameDepth,
+    material,
+    baseTop + frameDepth / 2
+  );
+}
+
 
 function sampleHeight(u, v) {
   if (!state.heightData) return 0;
@@ -286,11 +335,11 @@ function gaussianBlurGray(source, width, height, radius = 2) {
 
 function estimateMeshSegments(reliefWidth, reliefHeight) {
   const isMobile = window.matchMedia("(max-width: 900px)").matches;
-  const maxSegments = isMobile ? 280 : 420;
-  const minSegments = isMobile ? 180 : 240;
+  const maxSegments = isMobile ? 420 : 680;
+  const minSegments = isMobile ? 240 : 320;
 
   const imageResolution = Math.max(state.heightWidth, state.heightHeight);
-  const desired = Math.round(imageResolution * (isMobile ? 0.45 : 0.58));
+  const desired = Math.round(imageResolution * (isMobile ? 0.52 : 0.68));
 
   const longSide = Math.max(reliefWidth, reliefHeight);
   const shortSide = Math.min(reliefWidth, reliefHeight);
@@ -363,6 +412,62 @@ function buildHeightmapRelief(w, h, material, baseTop) {
   return mesh;
 }
 
+
+
+async function addCenteredText(w, h, material, baseTop) {
+  const rawText = state.tileText.trim();
+  if (!rawText) return;
+
+  const token = ++textBuildToken;
+
+  try {
+    const font = await loadFont(state.textFont);
+    if (token !== textBuildToken) return;
+
+    const sizeWorld = state.textSize / 100;
+    const depthWorld = Math.max(0.012, state.imageRelief / 180);
+
+    const geometry = new TextGeometry(rawText, {
+      font,
+      size: sizeWorld,
+      depth: depthWorld,
+      curveSegments: 18,
+      bevelEnabled: true,
+      bevelThickness: 0.0025,
+      bevelSize: 0.0018,
+      bevelOffset: 0,
+      bevelSegments: 3
+    });
+
+    geometry.computeBoundingBox();
+    const box = geometry.boundingBox;
+    const width = box.max.x - box.min.x;
+    const height = box.max.y - box.min.y;
+
+    const maxTextW = w * 0.72;
+    const maxTextH = h * 0.24;
+    const fitScale = Math.min(
+      1,
+      maxTextW / Math.max(width, 0.0001),
+      maxTextH / Math.max(height, 0.0001)
+    );
+
+    geometry.translate(
+      -(box.min.x + width / 2),
+      -(box.min.y + height / 2),
+      0
+    );
+
+    const mesh = new THREE.Mesh(geometry, material.clone());
+    mesh.scale.setScalar(fitScale);
+    mesh.position.set(0, 0, baseTop + 0.004);
+
+    tileGroup.add(mesh);
+  } catch (error) {
+    console.error("Errore caricamento font:", error);
+  }
+}
+
 function flashViewer() {
   const panel = document.querySelector(".viewer-panel");
   panel.classList.remove("viewer-updated");
@@ -404,13 +509,21 @@ function rebuildTile() {
   tileGroup.add(base);
 
   const baseTop = thickness / 2;
+  tileGroup.add(buildStandardFrame(w, h, reliefMat, baseTop));
+
   if (state.textureEnabled && state.heightData) {
     tileGroup.add(buildHeightmapRelief(w, h, reliefMat, baseTop));
   }
 
   const maxSide = Math.max(w,h);
-  tileGroup.scale.setScalar(1.72 / maxSide);
+  tileGroup.scale.setScalar(1.0 / maxSide);
+
+  addCenteredText(w, h, reliefMat, baseTop).then(() => {
+    fitCameraToTile();
+  });
+
   updateUi();
+  fitCameraToTile();
   flashViewer();
 }
 
@@ -433,6 +546,7 @@ function updateUi() {
   reliefOut.textContent = `${state.relief.toFixed(1)} mm`;
   imageReliefOut.textContent = `${state.imageRelief.toFixed(1)} mm`;
   imageContrastOut.textContent = `${state.imageContrast}%`;
+  textSizeOut.textContent = `${state.textSize} mm`;
 
   const glaze = GLAZES[state.glaze] || GLAZES.sabbia;
   const dimensions = `${state.width} × ${state.height} mm`;
@@ -466,16 +580,30 @@ document.querySelector("#invertRelief").addEventListener("change", e => {
   rebuildTile();
 });
 
+
+document.querySelector("#tileText").addEventListener("input", event => {
+  state.tileText = event.target.value;
+  rebuildTile();
+});
+
+document.querySelector("#textFont").addEventListener("change", event => {
+  state.textFont = event.target.value;
+  rebuildTile();
+});
+
+document.querySelector("#textSize").addEventListener("input", event => {
+  state.textSize = Number(event.target.value);
+  rebuildTile();
+});
+
 document.querySelector("#glaze").addEventListener("change", event => {
   state.glaze = event.target.value;
   rebuildTile();
 });
 
 document.querySelector("#resetView").addEventListener("click", () => {
-  camera.position.set(0, 0.1, 3.05);
-  controls.target.set(0, 0, 0);
   tileGroup.rotation.set(-0.12, 0.24, 0);
-  controls.update();
+  fitCameraToTile();
 });
 
 const textureFile = document.querySelector("#textureFile");
@@ -513,7 +641,7 @@ textureFile.addEventListener("change", event => {
       // Mantiene molta più informazione rispetto alla precedente
       // elaborazione a 256 px.
       const isMobileDevice = window.matchMedia("(max-width: 900px)").matches;
-      const maxSize = isMobileDevice ? 768 : 1024;
+      const maxSize = isMobileDevice ? 1024 : 1536;
       const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1);
       const canvas = document.createElement("canvas");
       canvas.width = Math.max(2, Math.round(img.width * ratio));
@@ -554,8 +682,9 @@ textureFile.addEventListener("change", event => {
       // senza cancellare i dettagli del disegno.
       const longestSide = Math.max(canvas.width, canvas.height);
       const blurRadius =
-        longestSide >= 900 ? 3 :
-        longestSide >= 600 ? 2 : 1;
+        longestSide >= 1400 ? 4 :
+        longestSide >= 1000 ? 3 :
+        longestSide >= 700 ? 2 : 1;
 
       state.heightData = gaussianBlurGray(
         heights,
@@ -711,6 +840,10 @@ orderForm.addEventListener("submit", async event => {
       glaze_code: state.glaze,
       glaze_label: (GLAZES[state.glaze] || GLAZES.sabbia).label,
       glaze_preview_color: (GLAZES[state.glaze] || GLAZES.sabbia).color,
+      custom_text: state.tileText.trim(),
+      text_font: state.textFont,
+      text_size_mm: state.textSize,
+      standard_frame: true,
       estimated_price_per_sqm_eur: Number(
         estimatePricePerSquareMeter().toFixed(2)
       ),
@@ -760,12 +893,46 @@ orderForm.addEventListener("submit", async event => {
 
 
 
+
+
+function fitCameraToTile() {
+  scene.updateMatrixWorld(true);
+
+  const box = new THREE.Box3().setFromObject(tileGroup);
+  if (box.isEmpty()) return;
+
+  const size = new THREE.Vector3();
+  const center = new THREE.Vector3();
+  box.getSize(size);
+  box.getCenter(center);
+
+  const verticalFov = THREE.MathUtils.degToRad(camera.fov);
+  const horizontalFov = 2 * Math.atan(
+    Math.tan(verticalFov / 2) * camera.aspect
+  );
+
+  const distanceForHeight =
+    size.y / (2 * Math.tan(verticalFov / 2));
+  const distanceForWidth =
+    size.x / (2 * Math.tan(horizontalFov / 2));
+
+  const distance = Math.max(distanceForHeight, distanceForWidth) * 1.28;
+
+  controls.target.copy(center);
+  camera.position.set(center.x, center.y + 0.03, center.z + distance);
+  camera.near = Math.max(0.01, distance / 100);
+  camera.far = distance * 100;
+  camera.updateProjectionMatrix();
+  controls.update();
+}
+
 function resize() {
   const w = viewer.clientWidth;
   const h = viewer.clientHeight;
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
+  fitCameraToTile();
 }
 window.addEventListener("resize", resize);
 if ("ResizeObserver" in window) {

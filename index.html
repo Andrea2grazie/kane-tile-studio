@@ -87,6 +87,42 @@
 
       <div class="section-divider" aria-hidden="true"><span></span></div>
 
+      
+      <div class="section-divider" aria-hidden="true"><span></span></div>
+
+      <section class="editor-section text-section">
+        <div class="section-heading">
+          <span>TESTO PERSONALIZZATO</span>
+          <strong>Scritta centrale in rilievo</strong>
+        </div>
+
+        <div class="control-group">
+          <label for="tileText">Testo</label>
+          <input id="tileText" class="text-input" type="text"
+                 maxlength="40" placeholder="Scrivi qui..." />
+        </div>
+
+        <div class="text-controls-grid">
+          <div class="control-group">
+            <label for="textFont">Font</label>
+            <select id="textFont">
+              <option value="helvetiker">Moderno</option>
+              <option value="optimer">Elegante</option>
+              <option value="gentilis">Classico</option>
+              <option value="droid_serif">Serif</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <div class="label-row">
+              <label for="textSize">Dimensione</label>
+              <output id="textSizeOut">14 mm</output>
+            </div>
+            <input id="textSize" type="range" min="6" max="32" value="14" step="1" />
+          </div>
+        </div>
+      </section>
+
       <section class="relief-section">
         <div class="relief-section-title">
           <span>RILIEVO MATTONELLA</span>
@@ -98,7 +134,7 @@
         <p class="field-help">Carica un logo, un motivo o una fotografia. L’immagine viene elaborata ad alta definizione con filtraggio anti-pixel; le zone scure diventano rilievo reale.</p>
         <input id="textureFile" type="file" accept="image/png,image/jpeg,image/webp" />
         <p class="quality-note">
-          Qualità rilievo: alta definizione · elaborazione fino a 1024 px
+          Qualità rilievo: ultra definizione · elaborazione fino a 1536 px
         </p>
 
         <div class="label-row relief-control">

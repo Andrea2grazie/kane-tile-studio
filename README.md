@@ -125,3 +125,16 @@ Per una pubblicazione commerciale è consigliato aggiungere successivamente:
 
 Su telefoni meno potenti, l’elaborazione di immagini molto complesse può richiedere
 alcuni secondi. La risoluzione viene automaticamente bilanciata per non bloccare il browser.
+
+
+## Aggiornamento v10
+
+- inquadratura automatica centrata con calcolo del bounding box;
+- cornice standard fissa;
+- testo centrale realmente estruso in 3D;
+- quattro font selezionabili;
+- dimensione del testo regolabile;
+- adattamento automatico del testo all’area disponibile;
+- elaborazione immagine fino a 1536 px su desktop e 1024 px su mobile;
+- mesh rilievo fino a circa 680 segmenti sul lato lungo;
+- qualità ancora superiore, con maggiore carico su dispositivi meno potenti.

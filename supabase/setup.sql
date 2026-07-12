@@ -71,3 +71,5 @@ with check (
 
 -- Non vengono create policy SELECT, UPDATE o DELETE per anon:
 -- i visitatori non possono vedere né cambiare i file caricati.
+
+
