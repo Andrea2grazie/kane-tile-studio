@@ -92,8 +92,8 @@ pmremGenerator.dispose();
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.target.set(0, 0, 0);
-controls.minDistance = 2;
-controls.maxDistance = 7;
+controls.minDistance = 0.55;
+controls.maxDistance = 12;
 
 const ambient = new THREE.AmbientLight(0xffffff, 1.7);
 scene.add(ambient);
@@ -195,6 +195,7 @@ const state = {
   originalFile: null,
   serviceType: "text",
   tileText: "",
+  appliedText: "",
   textFont: "helvetiker",
   textSize: 14,
   textNegative: false,
@@ -540,24 +541,24 @@ function createTextMaskTexture(text, fontKey) {
 }
 
 function buildRealtimeTextSurface(w, h, baseMaterial, baseTop) {
-  const text = state.tileText.trim();
+  const text = state.appliedText.trim();
   if (!text) return null;
 
   const innerW = w * 0.70;
-  const innerH = h * 0.24;
-  const geometry = new THREE.PlaneGeometry(innerW, innerH, 360, 120);
+  const innerH = h * 0.30;
+  const geometry = new THREE.PlaneGeometry(innerW, innerH, 480, 180);
   const maskTexture = createTextMaskTexture(text, state.textFont);
   const material = baseMaterial.clone();
 
   material.displacementMap = maskTexture;
-  material.displacementScale = (state.textNegative ? -1 : 1) * (state.textDepth / 100);
-  material.displacementBias = state.textNegative ? (state.textDepth / 100) : 0;
+  material.displacementScale = (state.textNegative ? -1 : 1) * (state.textDepth / 70);
+  material.displacementBias = state.textNegative ? (state.textDepth / 70) : 0;
   material.bumpMap = maskTexture;
   material.bumpScale = (state.textNegative ? -1 : 1) * (state.textDepth / 180);
   material.needsUpdate = true;
 
   const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.set(0, 0, baseTop + 0.004);
+  mesh.position.set(0, 0, baseTop + 0.006);
   mesh.userData.disposableTexture = maskTexture;
   return mesh;
 }
@@ -703,29 +704,50 @@ function updateServiceVisibility() {
 textServiceTab.addEventListener("click",()=>{state.serviceType="text";updateServiceVisibility();rebuildTile()});
 imageServiceTab.addEventListener("click",()=>{state.serviceType="image";updateServiceVisibility();rebuildTile()});
 
+const applyTextButton = document.querySelector("#applyTextButton");
+const textApplyStatus = document.querySelector("#textApplyStatus");
+
 document.querySelector("#tileText").addEventListener("input", event => {
   state.tileText = event.target.value;
+  textApplyStatus.textContent = "Premi “Applica scritta” per aggiornare la mattonella.";
+  textApplyStatus.className = "text-apply-status";
+});
+
+applyTextButton.addEventListener("click", () => {
+  const value = state.tileText.trim();
+
+  if (!value) {
+    state.appliedText = "";
+    textApplyStatus.textContent = "Scritta rimossa dalla mattonella.";
+    textApplyStatus.className = "text-apply-status success";
+    rebuildTile();
+    return;
+  }
+
+  state.appliedText = value;
+  textApplyStatus.textContent = "Scritta applicata centralmente.";
+  textApplyStatus.className = "text-apply-status success";
   rebuildTile();
 });
 
 document.querySelector("#textFont").addEventListener("change", event => {
   state.textFont = event.target.value;
-  rebuildTile();
+  if (state.appliedText) rebuildTile();
 });
 
 document.querySelector("#textSize").addEventListener("input", event => {
   state.textSize = Number(event.target.value);
-  rebuildTile();
+  if (state.appliedText) rebuildTile();
 });
 
 document.querySelector("#textNegative").addEventListener("change", event => {
   state.textNegative = event.target.checked;
-  rebuildTile();
+  if (state.appliedText) rebuildTile();
 });
 
 document.querySelector("#textDepth").addEventListener("input", event => {
   state.textDepth = Number(event.target.value);
-  rebuildTile();
+  if (state.appliedText) rebuildTile();
 });
 
 document.querySelector("#frameStyle").addEventListener("change", event => {
@@ -932,7 +954,7 @@ orderForm.addEventListener("submit", async event => {
     return;
   }
 
-  if (state.serviceType === "text" && !state.tileText.trim()) {
+  if (state.serviceType === "text" && !state.appliedText.trim()) {
     orderStatus.textContent = "Inserisci prima la scritta da applicare alla mattonella.";
     orderStatus.className = "order-status error";
     return;
@@ -987,7 +1009,7 @@ orderForm.addEventListener("submit", async event => {
       glaze_label: (GLAZES[state.glaze] || GLAZES.sabbia).label,
       glaze_preview_color: (GLAZES[state.glaze] || GLAZES.sabbia).color,
       service_type: state.serviceType,
-      custom_text: state.serviceType === "text" ? state.tileText.trim() : "",
+      custom_text: state.serviceType === "text" ? state.appliedText.trim() : "",
       text_font: state.serviceType === "text" ? state.textFont : null,
       text_size_mm: state.serviceType === "text" ? state.textSize : null,
       text_negative: state.serviceType === "text" ? state.textNegative : null,
@@ -1056,7 +1078,6 @@ function fitCameraToTile() {
 
   const size = new THREE.Vector3();
   const center = new THREE.Vector3();
-
   box.getSize(size);
   box.getCenter(center);
 
@@ -1069,17 +1090,19 @@ function fitCameraToTile() {
   const distanceForWidth =
     size.x / Math.max(0.001, 2 * Math.tan(horizontalFov / 2));
 
-  // Margine abbondante: la mattonella occupa circa il 60-70% del viewer.
+  const isDesktop = window.matchMedia("(min-width: 901px)").matches;
+  const framingMultiplier = isDesktop ? 1.92 : 1.58;
+  const minimumDistance = isDesktop ? 2.85 : 2.30;
+
   const distance = Math.max(
-    2.35,
-    Math.max(distanceForHeight, distanceForWidth) * 1.58
+    minimumDistance,
+    Math.max(distanceForHeight, distanceForWidth) * framingMultiplier
   );
 
   controls.target.copy(center);
-
   camera.position.set(
-    center.x + distance * 0.12,
-    center.y + distance * 0.08,
+    center.x + distance * 0.10,
+    center.y + distance * 0.07,
     center.z + distance
   );
 

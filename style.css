@@ -738,3 +738,7 @@ select {
 .customization-panel[hidden]{display:none!important}
 .frame-section{margin-top:10px}
 @media(max-width:520px){.customization-tabs{grid-template-columns:1fr}}
+
+.apply-text-button{margin-top:10px}
+.text-apply-status{min-height:18px;margin:8px 0 0;color:var(--muted);font-size:12px;line-height:1.35}
+.text-apply-status.success{color:var(--accent);font-weight:700}

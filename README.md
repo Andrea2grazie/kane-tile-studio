@@ -178,3 +178,10 @@ alcuni secondi. La risoluzione viene automaticamente bilanciata per non bloccare
 - inquadratura con margine maggiore;
 - distanza minima della fotocamera per evitare zoom eccessivo;
 - mattonella centrata e visibile su iPhone e desktop.
+
+## Aggiornamento v15
+- pulsante Applica scritta;
+- scritta calcolata solo su comando;
+- testo più evidente e centrato;
+- zoom manuale più vicino;
+- inquadratura iniziale meno ravvicinata su desktop.
