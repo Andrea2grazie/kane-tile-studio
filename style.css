@@ -56,9 +56,7 @@ button, input, select { font: inherit; }
   position: relative;
   min-height: 650px;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 50% 45%, rgba(255,255,255,.9), rgba(226,221,210,.6)),
-    linear-gradient(135deg, #eae6dc, #d9d4c8);
+  background: transparent;
 }
 
 #viewer { position: absolute; inset: 0; }
@@ -477,4 +475,48 @@ select {
   .order-field {
     padding: 11px 12px;
   }
+}
+
+
+/* Sezione rilievo più evidente */
+.relief-section {
+  margin-top: 28px;
+  padding: 18px;
+  border: 2px solid var(--accent);
+  border-radius: 16px;
+  background: rgba(23, 63, 56, .035);
+}
+
+.relief-section-title {
+  margin-bottom: 8px;
+}
+
+.relief-section-title span {
+  display: block;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .14em;
+}
+
+.relief-section-title strong {
+  display: block;
+  margin-top: 4px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.relief-section .control-group {
+  margin-top: 16px;
+}
+
+/* Viewer pulito: nessun fondale, nessuna ombra */
+.viewer-panel {
+  background: transparent !important;
+}
+
+#viewer,
+#viewer canvas {
+  background: transparent !important;
 }

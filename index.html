@@ -90,7 +90,13 @@
       </div>
 
 
-      <div class="control-group texture-upload">
+      <section class="relief-section">
+        <div class="relief-section-title">
+          <span>RILIEVO MATTONELLA</span>
+          <strong>Crea il bassorilievo</strong>
+        </div>
+
+        <div class="control-group texture-upload">
         <label for="textureFile">Immagine da trasformare in rilievo</label>
         <p class="field-help">Carica un logo o un motivo ad alto contrasto. Per impostazione iniziale le zone scure diventano rilievo reale.</p>
         <input id="textureFile" type="file" accept="image/*" />
@@ -126,16 +132,8 @@
           <img id="texturePreview" alt="Anteprima immagine caricata" />
         </div>
       </div>
-
-      <label class="toggle-row">
-        <span>
-          <strong>Cornice perimetrale</strong>
-          <small>Aggiunge un bordo in rilievo</small>
-        </span>
-        <input id="border" type="checkbox" checked />
-      </label>
-
-      <div class="summary">
+      </section>
+<div class="summary">
         <div>
           <span>Configurazione</span>
           <strong id="summaryText">100 × 100 mm</strong>
@@ -150,7 +148,7 @@
         <p class="eyebrow">RICHIESTA DI PRODUZIONE</p>
         <h2 id="orderTitle">Proponi ordine</h2>
         <p class="order-intro">
-          Inserisci soltanto l’email alla quale desideri ricevere la valutazione.
+          La richiesta viene salvata nel pannello Supabase. Inserisci l’email alla quale desideri ricevere la valutazione.
         </p>
 
         <form id="orderForm">

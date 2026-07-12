@@ -43,11 +43,11 @@ camera.position.set(0, 2.15, 3.45);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = false;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.78;
+renderer.toneMappingExposure = 0.72;
 viewer.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -56,43 +56,24 @@ controls.target.set(0, 0, 0);
 controls.minDistance = 2;
 controls.maxDistance = 7;
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0x746f65, 0.72));
+scene.add(new THREE.HemisphereLight(0xffffff, 0x777777, 1.15));
 
-const key = new THREE.DirectionalLight(0xffffff, 1.55);
+const key = new THREE.DirectionalLight(0xffffff, 1.15);
 key.position.set(3.5, 5, 4);
 key.castShadow = true;
 key.shadow.mapSize.set(2048, 2048);
 scene.add(key);
 
-const fill = new THREE.DirectionalLight(0xdce9ff, 0.48);
+const fill = new THREE.DirectionalLight(0xffffff, 0.38);
 fill.position.set(-4, 2, 1);
 scene.add(fill);
 
-const grazing = new THREE.DirectionalLight(0xffe5c6, 0.82);
+const grazing = new THREE.DirectionalLight(0xffffff, 0.52);
 grazing.position.set(-3.5, 0.6, 4.5);
 scene.add(grazing);
 
 
-const backplate = new THREE.Mesh(
-  new THREE.PlaneGeometry(7, 7),
-  new THREE.MeshStandardMaterial({
-    color: 0xd8d3c8,
-    roughness: 1,
-    metalness: 0
-  })
-);
-backplate.position.set(0, 0, -0.55);
-backplate.receiveShadow = true;
-scene.add(backplate);
 
-const floor = new THREE.Mesh(
-  new THREE.CircleGeometry(2.4, 96),
-  new THREE.ShadowMaterial({ opacity: 0.28 })
-);
-floor.rotation.x = -Math.PI / 2;
-floor.position.y = -0.34;
-floor.receiveShadow = true;
-scene.add(floor);
 
 const tileGroup = new THREE.Group();
 tileGroup.rotation.x = -0.34;
@@ -105,7 +86,6 @@ const state = {
   relief: 2.5,
   motif: "diamond",
   glaze: "sabbia",
-  border: true,
   textureEnabled: false,
   imageRelief: 3,
   imageContrast: 100,
@@ -157,8 +137,6 @@ function extrudedShape(shape, depth, material, z) {
   geometry.center();
   const mesh = new THREE.Mesh(geometry, material);
   mesh.position.z = z;
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
   return mesh;
 }
 
@@ -196,7 +174,7 @@ function buildHeightmapRelief(w, h, material, baseTop) {
   const segments = 180;
 
   // L'immagine viene contenuta nell'area utile senza deformazioni.
-  const availableFactor = state.border ? 0.76 : 0.88;
+  const availableFactor = 0.88;
   const availableW = w * availableFactor;
   const availableH = h * availableFactor;
   const imageAspect = state.heightWidth / state.heightHeight;
@@ -230,8 +208,6 @@ function buildHeightmapRelief(w, h, material, baseTop) {
 
   const mesh = new THREE.Mesh(geometry, material);
   mesh.position.set(0, 0, baseTop + 0.003);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
   return mesh;
 }
 
@@ -270,7 +246,6 @@ function buildDefaultMotif(material, z, scale) {
           new THREE.Vector3((0.16+i*.19)*scale, (row*.14)*scale, z)
         ]);
         const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 24, .018*scale, 8, false), material);
-        tube.castShadow = true;
         motif.add(tube);
       }
     }
@@ -302,17 +277,20 @@ function rebuildTile() {
   const glaze = GLAZES[state.glaze] || GLAZES.sabbia;
   const glazeColor = new THREE.Color(glaze.color);
 
-  const ceramic = new THREE.MeshStandardMaterial({
+  const ceramic = new THREE.MeshPhysicalMaterial({
     color: glazeColor,
     roughness: glaze.roughness,
-    metalness: 0
+    metalness: 0,
+    clearcoat: glaze.roughness < 0.3 ? 0.9 : 0.28,
+    clearcoatRoughness: glaze.roughness < 0.3 ? 0.12 : 0.45,
+    sheen: 0.18,
+    sheenRoughness: 0.72,
+    reflectivity: 0.34
   });
 
-  const reliefMat = new THREE.MeshStandardMaterial({
-    color: glazeColor.clone().offsetHSL(0, 0, -0.085),
-    roughness: Math.min(1, glaze.roughness + 0.08),
-    metalness: 0
-  });
+  // Stesso identico materiale per base e rilievo:
+  // il colore cambia uniformemente su tutta la mattonella.
+  const reliefMat = ceramic.clone();
 
   const baseShape = roundedRectShape(w, h, Math.min(w,h)*.055);
   const base = extrudedShape(baseShape, thickness, ceramic, 0);
@@ -320,13 +298,6 @@ function rebuildTile() {
 
   const baseTop = thickness / 2;
   const reliefZ = baseTop + reliefDepth / 2;
-
-  if (state.border) {
-    const borderShape = roundedRectShape(w*.90, h*.90, Math.min(w,h)*.035);
-    const hole = roundedRectShape(w*.82, h*.82, Math.min(w,h)*.025);
-    borderShape.holes.push(hole);
-    tileGroup.add(extrudedShape(borderShape, reliefDepth, reliefMat, reliefZ));
-  }
 
   if (state.textureEnabled && state.heightData) {
     tileGroup.add(buildHeightmapRelief(w, h, reliefMat, baseTop));
@@ -343,7 +314,7 @@ function rebuildTile() {
 function estimatePrice() {
   const areaFactor = (state.width * state.height) / 10000;
   const reliefFactor = state.textureEnabled ? state.imageRelief * 1.8 : state.relief * 1.2;
-  return 20 + areaFactor * 6 + reliefFactor + (state.border ? 2 : 0) + (state.textureEnabled ? 8 : 0);
+  return 20 + areaFactor * 6 + reliefFactor + (state.textureEnabled ? 8 : 0);
 }
 
 function updateUi() {
@@ -378,10 +349,6 @@ bindRange("motif", "motif", false);
 bindRange("imageRelief", "imageRelief");
 bindRange("imageContrast", "imageContrast");
 
-document.querySelector("#border").addEventListener("change", e => {
-  state.border = e.target.checked;
-  rebuildTile();
-});
 
 document.querySelector("#invertRelief").addEventListener("change", e => {
   state.invertRelief = e.target.checked;
@@ -613,7 +580,6 @@ orderForm.addEventListener("submit", async event => {
       image_relief_mm: state.imageRelief,
       image_contrast_percent: state.imageContrast,
       dark_areas_raised: state.invertRelief,
-      border: state.border,
       glaze_code: state.glaze,
       glaze_label: (GLAZES[state.glaze] || GLAZES.sabbia).label,
       glaze_preview_color: (GLAZES[state.glaze] || GLAZES.sabbia).color,
