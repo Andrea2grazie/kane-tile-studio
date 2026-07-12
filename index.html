@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Kanè Tile Studio — Configuratore 3D</title>
+  <meta name="description" content="Bozza di configuratore 3D per mattonelle personalizzate." />
+  <link rel="stylesheet" href="./style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./config.js"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.185.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">K</span>
+      <div>
+        <strong>Kanè Tile Studio</strong>
+        <small>Disegna la tua mattonella</small>
+      </div>
+    </div>
+    <button id="resetView" class="ghost">Reimposta vista</button>
+  </header>
+
+  <main class="app">
+    <section class="viewer-panel">
+      <div id="viewer" aria-label="Anteprima 3D interattiva"></div>
+      <div class="viewer-help">Trascina per ruotare · Rotella per zoomare</div>
+      <div class="badge">PROTOTIPO</div>
+    </section>
+
+    <aside class="controls">
+      <div class="intro">
+        <p class="eyebrow">CONFIGURATORE</p>
+        <h1>Crea una mattonella unica</h1>
+        <p>Modifica misure, rilievo e finitura. L’anteprima si aggiorna in tempo reale.</p>
+      </div>
+
+      <div class="control-group">
+        <div class="label-row">
+          <label for="width">Larghezza</label>
+          <output id="widthOut">100 mm</output>
+        </div>
+        <input id="width" type="range" min="70" max="200" value="100" step="5" />
+      </div>
+
+      <div class="control-group">
+        <div class="label-row">
+          <label for="height">Altezza</label>
+          <output id="heightOut">100 mm</output>
+        </div>
+        <input id="height" type="range" min="70" max="200" value="100" step="5" />
+      </div>
+
+      <div class="control-group">
+        <div class="label-row">
+          <label for="relief">Profondità rilievo</label>
+          <output id="reliefOut">2.5 mm</output>
+        </div>
+        <input id="relief" type="range" min="1" max="6" value="2.5" step="0.5" />
+      </div>
+
+      <div class="control-group">
+        <label for="motif">Motivo</label>
+        <select id="motif">
+          <option value="diamond">Intreccio geometrico</option>
+          <option value="sun">Rosone mediterraneo</option>
+          <option value="waves">Onde</option>
+          <option value="minimal">Segno minimale</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label>Finitura</label>
+        <div class="swatches" role="group" aria-label="Selezione colore">
+          <button class="swatch active" data-color="#d8c4a8" style="--swatch:#d8c4a8" title="Sabbia"></button>
+          <button class="swatch" data-color="#315b56" style="--swatch:#315b56" title="Verde"></button>
+          <button class="swatch" data-color="#23303b" style="--swatch:#23303b" title="Antracite"></button>
+          <button class="swatch" data-color="#a84b35" style="--swatch:#a84b35" title="Terracotta"></button>
+          <button class="swatch" data-color="#e9e6df" style="--swatch:#e9e6df" title="Bianco"></button>
+        </div>
+      </div>
+
+
+      <div class="control-group texture-upload">
+        <label for="textureFile">Immagine da trasformare in rilievo</label>
+        <p class="field-help">Carica un logo o un motivo ad alto contrasto. Per impostazione iniziale le zone scure diventano rilievo reale.</p>
+        <input id="textureFile" type="file" accept="image/*" />
+
+        <div class="label-row relief-control">
+          <label for="imageRelief">Intensità rilievo immagine</label>
+          <output id="imageReliefOut">3.0 mm</output>
+        </div>
+        <input id="imageRelief" type="range" min="0.5" max="10" value="3" step="0.5" disabled />
+
+        <div class="label-row relief-control">
+          <label for="imageContrast">Contrasto</label>
+          <output id="imageContrastOut">100%</output>
+        </div>
+        <input id="imageContrast" type="range" min="50" max="250" value="100" step="10" disabled />
+
+        <label class="toggle-row compact-toggle">
+          <span>
+            <strong>Zone scure in rilievo</strong>
+            <small>Ideale per loghi neri su sfondo chiaro</small>
+          </span>
+          <input id="invertRelief" type="checkbox" checked disabled />
+        </label>
+
+        <div class="texture-actions">
+          <label class="mini-toggle">
+            <input id="textureEnabled" type="checkbox" disabled />
+            <span>Usa rilievo immagine</span>
+          </label>
+          <button id="removeTexture" class="small-button" type="button" disabled>Rimuovi</button>
+        </div>
+        <div id="texturePreviewWrap" class="texture-preview-wrap" hidden>
+          <img id="texturePreview" alt="Anteprima immagine caricata" />
+        </div>
+      </div>
+
+      <label class="toggle-row">
+        <span>
+          <strong>Cornice perimetrale</strong>
+          <small>Aggiunge un bordo in rilievo</small>
+        </span>
+        <input id="border" type="checkbox" checked />
+      </label>
+
+      <div class="summary">
+        <div>
+          <span>Configurazione</span>
+          <strong id="summaryText">100 × 100 mm</strong>
+        </div>
+        <div class="price">
+          <span>Da</span>
+          <strong id="price">€ 29,00</strong>
+        </div>
+      </div>
+
+      <button id="requestButton" class="primary">Invia richiesta di produzione</button>
+      <p id="requestMessage" class="request-message" hidden></p>
+    </aside>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+
+  <dialog id="orderDialog" class="order-dialog">
+    <form id="orderForm" class="order-form">
+      <div class="dialog-header">
+        <div>
+          <p class="eyebrow">RICHIESTA DI PRODUZIONE</p>
+          <h2>Invia la configurazione</h2>
+        </div>
+        <button id="closeOrderDialog" class="dialog-close" type="button" aria-label="Chiudi">×</button>
+      </div>
+
+      <div class="order-preview">
+        <span>Mattonella configurata</span>
+        <strong id="orderSummary">100 × 100 mm</strong>
+      </div>
+
+      <label for="customerEmail">Email</label>
+      <input id="customerEmail" name="email" type="email" inputmode="email"
+             autocomplete="email" maxlength="254" required
+             placeholder="nome@email.it" />
+
+      <label for="orderQuantity">Quantità</label>
+      <input id="orderQuantity" name="quantity" type="number"
+             min="1" max="10000" step="1" value="1" required />
+
+      <input id="websiteField" class="honeypot" name="website"
+             type="text" tabindex="-1" autocomplete="off" aria-hidden="true" />
+
+      <p class="privacy-note">
+        L’email e il file grafico vengono utilizzati esclusivamente per valutare
+        e gestire questa richiesta. Non vengono richiesti nome, telefono o indirizzo. <a href="./privacy.html" target="_blank" rel="noopener">Informazioni</a>.
+      </p>
+
+      <button id="submitOrder" class="primary" type="submit">
+        Invia richiesta
+      </button>
+
+      <p id="orderStatus" class="order-status" role="status" aria-live="polite"></p>
+    </form>
+  </dialog>
+
+</body>
+</html>
