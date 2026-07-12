@@ -253,10 +253,17 @@ function rebuildTile() {
   flashViewer();
 }
 
-function estimatePrice() {
-  const areaFactor = (state.width * state.height) / 10000;
-  const reliefFactor = state.textureEnabled ? state.imageRelief * 1.8 : 0;
-  return 20 + areaFactor * 6 + reliefFactor + (state.textureEnabled ? 8 : 0);
+function estimatePricePerSquareMeter() {
+  const minimumRate = 45;
+  const reliefSurcharge = state.textureEnabled
+    ? Math.max(0, state.imageRelief - 1) * 1.5
+    : 0;
+  const customReliefSurcharge = state.textureEnabled ? 4 : 0;
+
+  return Math.max(
+    minimumRate,
+    minimumRate + reliefSurcharge + customReliefSurcharge
+  );
 }
 
 function updateUi() {
@@ -271,10 +278,12 @@ function updateUi() {
   summaryText.textContent = dimensions;
   orderSummary.textContent = `${dimensions} · ${glaze.label}`;
 
-  price.textContent = new Intl.NumberFormat("it-IT", {
-    style: "currency",
-    currency: "EUR"
-  }).format(estimatePrice());
+  const pricePerSquareMeter = estimatePricePerSquareMeter();
+  price.innerHTML =
+    `${new Intl.NumberFormat("it-IT", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(pricePerSquareMeter)} € <small>/m²</small>`;
 }
 
 function bindRange(id, key, numeric = true) {
@@ -524,7 +533,11 @@ orderForm.addEventListener("submit", async event => {
       glaze_code: state.glaze,
       glaze_label: (GLAZES[state.glaze] || GLAZES.sabbia).label,
       glaze_preview_color: (GLAZES[state.glaze] || GLAZES.sabbia).color,
-      estimated_unit_price_eur: Number(estimatePrice().toFixed(2))
+      estimated_price_per_sqm_eur: Number(
+        estimatePricePerSquareMeter().toFixed(2)
+      ),
+      price_unit: "EUR/m2",
+      minimum_price_per_sqm_eur: 45
     };
 
     const { error: insertError } = await supabaseClient
@@ -564,6 +577,9 @@ orderForm.addEventListener("submit", async event => {
     submitOrder.textContent = "Proponi ordine";
   }
 });
+
+
+
 
 
 function resize() {

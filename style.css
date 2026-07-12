@@ -591,3 +591,11 @@ select {
     padding: 20px !important;
   }
 }
+
+
+.price strong small {
+  font-size: .48em;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--accent);
+}

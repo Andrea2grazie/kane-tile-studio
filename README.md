@@ -75,3 +75,36 @@ Per una pubblicazione commerciale è consigliato aggiungere successivamente:
 - `app.js` — configuratore e invio ordine;
 - `config.js` — credenziali pubblicabili Supabase;
 - `supabase/setup.sql` — database, bucket e policy.
+
+
+## Aggiornamento interfaccia v2
+
+- selezione dello smalto tramite menu a tendina;
+- modulo email e quantità sempre visibile;
+- pulsante `Proponi ordine`;
+- immagine del rilievo centrata e contenuta senza deformazioni;
+- anteprima 3D fissa durante lo scorrimento sui telefoni;
+- salvataggio dello smalto scelto nella configurazione Supabase.
+
+
+## Aggiornamento v4
+
+- nessun piano di sfondo;
+- nessuna ombra;
+- solo mattonella nella scena;
+- materiale ceramico fisico;
+- colore uniforme su base e rilievo;
+- rimossa la cornice;
+- sezione “Rilievo mattonella” evidenziata;
+- il form salva su Supabase e non invia ancora email automatiche.
+
+
+
+
+## Aggiornamento v8
+
+- rimossa completamente l’Area riservata;
+- rimosso il bollino con il numero degli ordini;
+- rimossa la password amministrativa;
+- rimossa la Edge Function `admin-orders`;
+- gli ordini continuano a essere salvati nella tabella Supabase `orders`.
