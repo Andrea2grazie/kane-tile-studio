@@ -299,3 +299,13 @@ alcuni secondi. La risoluzione viene automaticamente bilanciata per non bloccare
 - rimossa la possibilità di allineare il testo;
 - il testo resta centrato automaticamente;
 - confermata la rimozione del reset automatico camera quando cambi parametri.
+
+
+## Aggiornamento v26
+
+- versione aggiornata a `Kanè Tile Studio v26`;
+- aggiunto pulsante rotondo fisso in basso a destra;
+- testo pulsante: `Home Kanè Store`;
+- aggiunta freccia per il ritorno;
+- collegamento a `https://www.disegno4d.it/e-commerce/`;
+- adattamento dimensioni per desktop e mobile.

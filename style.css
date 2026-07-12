@@ -851,3 +851,69 @@ select {
   font-family: inherit;
 }
 
+
+
+.home-store-button {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 1000;
+  width: 94px;
+  height: 94px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: 50%;
+  background: #173f38;
+  color: #ffffff;
+  text-decoration: none;
+  text-align: center;
+  box-shadow: 0 12px 28px rgba(16, 35, 31, .28);
+  border: 2px solid rgba(255,255,255,.72);
+  transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.home-store-button:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 16px 34px rgba(16, 35, 31, .34);
+  background: #1d4e45;
+}
+
+.home-store-button:active {
+  transform: scale(.97);
+}
+
+.home-store-arrow {
+  font-size: 22px;
+  line-height: 1;
+  font-family: Arial, sans-serif;
+  font-weight: 700;
+}
+
+.home-store-label {
+  max-width: 76px;
+  font-size: 12px;
+  line-height: 1.15;
+  font-weight: 700;
+}
+
+@media (max-width: 700px) {
+  .home-store-button {
+    right: 14px;
+    bottom: 14px;
+    width: 82px;
+    height: 82px;
+  }
+
+  .home-store-arrow {
+    font-size: 20px;
+  }
+
+  .home-store-label {
+    max-width: 68px;
+    font-size: 11px;
+  }
+}
