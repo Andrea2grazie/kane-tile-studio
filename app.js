@@ -1,6 +1,40 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
+
+const GLAZES = {
+  nero_opaco: {
+    label: "Nero opaco",
+    color: "#171918",
+    roughness: 0.86
+  },
+  bianco_lucido: {
+    label: "Bianco lucido",
+    color: "#f4f3ed",
+    roughness: 0.14
+  },
+  verde_oliva_lucido: {
+    label: "Verde oliva lucido",
+    color: "#626a43",
+    roughness: 0.18
+  },
+  tortora: {
+    label: "Tortora",
+    color: "#988b7c",
+    roughness: 0.46
+  },
+  sabbia: {
+    label: "Sabbia",
+    color: "#d8c4a8",
+    roughness: 0.56
+  },
+  altro: {
+    label: "Altro colore da concordare",
+    color: "#aaa79f",
+    roughness: 0.42
+  }
+};
+
 const viewer = document.querySelector("#viewer");
 const scene = new THREE.Scene();
 
@@ -55,7 +89,7 @@ const state = {
   height: 100,
   relief: 2.5,
   motif: "diamond",
-  color: "#d8c4a8",
+  glaze: "sabbia",
   border: true,
   textureEnabled: false,
   imageRelief: 3,
@@ -145,22 +179,42 @@ function sampleHeight(u, v) {
 
 function buildHeightmapRelief(w, h, material, baseTop) {
   const segments = 180;
-  const geometry = new THREE.PlaneGeometry(w * 0.84, h * 0.84, segments, segments);
+
+  // L'immagine viene contenuta nell'area utile senza deformazioni.
+  const availableFactor = state.border ? 0.76 : 0.88;
+  const availableW = w * availableFactor;
+  const availableH = h * availableFactor;
+  const imageAspect = state.heightWidth / state.heightHeight;
+  const availableAspect = availableW / availableH;
+
+  let reliefW;
+  let reliefH;
+
+  if (imageAspect >= availableAspect) {
+    reliefW = availableW;
+    reliefH = availableW / imageAspect;
+  } else {
+    reliefH = availableH;
+    reliefW = availableH * imageAspect;
+  }
+
+  const geometry = new THREE.PlaneGeometry(reliefW, reliefH, segments, segments);
   const pos = geometry.attributes.position;
   const maxRelief = state.imageRelief / 100;
 
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i);
     const y = pos.getY(i);
-    const u = (x / (w * 0.84)) + 0.5;
-    const v = (y / (h * 0.84)) + 0.5;
+    const u = (x / reliefW) + 0.5;
+    const v = (y / reliefH) + 0.5;
     const z = 0.0015 + sampleHeight(u, v) * maxRelief;
     pos.setZ(i, z);
   }
 
   geometry.computeVertexNormals();
+
   const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.z = baseTop + 0.003;
+  mesh.position.set(0, 0, baseTop + 0.003);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   return mesh;
@@ -215,6 +269,13 @@ function buildDefaultMotif(material, z, scale) {
   tileGroup.add(motif);
 }
 
+function flashViewer() {
+  const panel = document.querySelector(".viewer-panel");
+  panel.classList.remove("viewer-updated");
+  void panel.offsetWidth;
+  panel.classList.add("viewer-updated");
+}
+
 function rebuildTile() {
   clearGroup(tileGroup);
 
@@ -223,15 +284,19 @@ function rebuildTile() {
   const thickness = .16;
   const reliefDepth = .028 + state.relief / 1000 * 1.8;
 
+  const glaze = GLAZES[state.glaze] || GLAZES.sabbia;
+  const glazeColor = new THREE.Color(glaze.color);
+
   const ceramic = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(state.color),
-    roughness: .52,
+    color: glazeColor,
+    roughness: glaze.roughness,
     metalness: 0
   });
 
   const reliefMat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(state.color).offsetHSL(0, 0, -.085),
-    roughness: .62
+    color: glazeColor.clone().offsetHSL(0, 0, -0.045),
+    roughness: Math.min(1, glaze.roughness + 0.08),
+    metalness: 0
   });
 
   const baseShape = roundedRectShape(w, h, Math.min(w,h)*.055);
@@ -257,6 +322,7 @@ function rebuildTile() {
   const maxSide = Math.max(w,h);
   tileGroup.scale.setScalar(1.25 / maxSide);
   updateUi();
+  flashViewer();
 }
 
 function estimatePrice() {
@@ -271,8 +337,16 @@ function updateUi() {
   reliefOut.textContent = `${state.relief.toFixed(1)} mm`;
   imageReliefOut.textContent = `${state.imageRelief.toFixed(1)} mm`;
   imageContrastOut.textContent = `${state.imageContrast}%`;
-  summaryText.textContent = `${state.width} × ${state.height} mm`;
-  price.textContent = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(estimatePrice());
+
+  const glaze = GLAZES[state.glaze] || GLAZES.sabbia;
+  const dimensions = `${state.width} × ${state.height} mm`;
+  summaryText.textContent = dimensions;
+  orderSummary.textContent = `${dimensions} · ${glaze.label}`;
+
+  price.textContent = new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: "EUR"
+  }).format(estimatePrice());
 }
 
 function bindRange(id, key, numeric = true) {
@@ -299,13 +373,9 @@ document.querySelector("#invertRelief").addEventListener("change", e => {
   rebuildTile();
 });
 
-document.querySelectorAll(".swatch").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".swatch").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    state.color = btn.dataset.color;
-    rebuildTile();
-  });
+document.querySelector("#glaze").addEventListener("change", event => {
+  state.glaze = event.target.value;
+  rebuildTile();
 });
 
 document.querySelector("#resetView").addEventListener("click", () => {
@@ -430,9 +500,7 @@ removeTexture.addEventListener("click", () => {
 });
 
 
-const orderDialog = document.querySelector("#orderDialog");
 const orderForm = document.querySelector("#orderForm");
-const closeOrderDialog = document.querySelector("#closeOrderDialog");
 const submitOrder = document.querySelector("#submitOrder");
 const orderStatus = document.querySelector("#orderStatus");
 const orderSummary = document.querySelector("#orderSummary");
@@ -462,20 +530,6 @@ function makeOrderCode() {
   return `KANE-${year}-${shortId}`;
 }
 
-document.querySelector("#requestButton").addEventListener("click", () => {
-  orderSummary.textContent =
-    `${state.width} × ${state.height} mm · rilievo ${state.imageRelief.toFixed(1)} mm`;
-
-  orderStatus.textContent = "";
-  orderStatus.className = "order-status";
-  orderDialog.showModal();
-});
-
-closeOrderDialog.addEventListener("click", () => orderDialog.close());
-
-orderDialog.addEventListener("click", event => {
-  if (event.target === orderDialog) orderDialog.close();
-});
 
 orderForm.addEventListener("submit", async event => {
   event.preventDefault();
@@ -545,7 +599,9 @@ orderForm.addEventListener("submit", async event => {
       image_contrast_percent: state.imageContrast,
       dark_areas_raised: state.invertRelief,
       border: state.border,
-      color: state.color,
+      glaze_code: state.glaze,
+      glaze_label: (GLAZES[state.glaze] || GLAZES.sabbia).label,
+      glaze_preview_color: (GLAZES[state.glaze] || GLAZES.sabbia).color,
       estimated_unit_price_eur: Number(estimatePrice().toFixed(2))
     };
 
@@ -571,14 +627,11 @@ orderForm.addEventListener("submit", async event => {
     orderStatus.textContent =
       `Richiesta inviata. Il codice è ${orderCode}. Riceverai la risposta all’email indicata.`;
     orderStatus.className = "order-status success";
-    submitOrder.textContent = "Richiesta inviata";
-
-    document.querySelector("#requestMessage").hidden = false;
-    document.querySelector("#requestMessage").textContent =
-      `Ultima richiesta inviata: ${orderCode}`;
+    submitOrder.textContent = "Proponi ordine";
 
     orderForm.reset();
     document.querySelector("#orderQuantity").value = "1";
+    submitOrder.disabled = false;
 
   } catch (error) {
     console.error(error);
@@ -586,7 +639,7 @@ orderForm.addEventListener("submit", async event => {
       "Invio non riuscito. Controlla la configurazione Supabase e riprova.";
     orderStatus.className = "order-status error";
     submitOrder.disabled = false;
-    submitOrder.textContent = "Invia richiesta";
+    submitOrder.textContent = "Proponi ordine";
   }
 });
 
@@ -599,6 +652,8 @@ function resize() {
   camera.updateProjectionMatrix();
 }
 window.addEventListener("resize", resize);
+const viewerResizeObserver = new ResizeObserver(resize);
+viewerResizeObserver.observe(viewer);
 
 function animate() {
   requestAnimationFrame(animate);

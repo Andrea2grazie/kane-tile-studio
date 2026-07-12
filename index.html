@@ -40,7 +40,7 @@
       <div class="intro">
         <p class="eyebrow">CONFIGURATORE</p>
         <h1>Crea una mattonella unica</h1>
-        <p>Modifica misure, rilievo e finitura. L’anteprima si aggiorna in tempo reale.</p>
+        <p>Modifica misure, rilievo e smalto. L’anteprima si aggiorna in tempo reale.</p>
       </div>
 
       <div class="control-group">
@@ -78,14 +78,15 @@
       </div>
 
       <div class="control-group">
-        <label>Finitura</label>
-        <div class="swatches" role="group" aria-label="Selezione colore">
-          <button class="swatch active" data-color="#d8c4a8" style="--swatch:#d8c4a8" title="Sabbia"></button>
-          <button class="swatch" data-color="#315b56" style="--swatch:#315b56" title="Verde"></button>
-          <button class="swatch" data-color="#23303b" style="--swatch:#23303b" title="Antracite"></button>
-          <button class="swatch" data-color="#a84b35" style="--swatch:#a84b35" title="Terracotta"></button>
-          <button class="swatch" data-color="#e9e6df" style="--swatch:#e9e6df" title="Bianco"></button>
-        </div>
+        <label for="glaze">Smalto</label>
+        <select id="glaze">
+          <option value="nero_opaco">Nero opaco</option>
+          <option value="bianco_lucido">Bianco lucido</option>
+          <option value="verde_oliva_lucido">Verde oliva lucido</option>
+          <option value="tortora">Tortora</option>
+          <option value="sabbia" selected>Sabbia</option>
+          <option value="altro">Altro colore da concordare</option>
+        </select>
       </div>
 
 
@@ -145,52 +146,47 @@
         </div>
       </div>
 
-      <button id="requestButton" class="primary">Invia richiesta di produzione</button>
-      <p id="requestMessage" class="request-message" hidden></p>
+      <section class="order-inline" aria-labelledby="orderTitle">
+        <p class="eyebrow">RICHIESTA DI PRODUZIONE</p>
+        <h2 id="orderTitle">Proponi ordine</h2>
+        <p class="order-intro">
+          Inserisci soltanto l’email alla quale desideri ricevere la valutazione.
+        </p>
+
+        <form id="orderForm">
+          <div class="order-preview">
+            <span>Configurazione attuale</span>
+            <strong id="orderSummary">100 × 100 mm</strong>
+          </div>
+
+          <label for="customerEmail">Email</label>
+          <input id="customerEmail" name="email" type="email" inputmode="email"
+                 autocomplete="email" maxlength="254" required
+                 placeholder="nome@email.it" />
+
+          <label for="orderQuantity">Quantità</label>
+          <input id="orderQuantity" name="quantity" type="number"
+                 min="1" max="10000" step="1" value="1" required />
+
+          <input id="websiteField" class="honeypot" name="website"
+                 type="text" tabindex="-1" autocomplete="off" aria-hidden="true" />
+
+          <p class="privacy-note">
+            L’email e il file grafico vengono utilizzati esclusivamente per valutare
+            e gestire questa richiesta. Non vengono richiesti nome, telefono o indirizzo.
+            <a href="./privacy.html" target="_blank" rel="noopener">Informazioni</a>.
+          </p>
+
+          <button id="submitOrder" class="primary" type="submit">
+            Proponi ordine
+          </button>
+
+          <p id="orderStatus" class="order-status" role="status" aria-live="polite"></p>
+        </form>
+      </section>
     </aside>
   </main>
 
   <script type="module" src="./app.js"></script>
-
-  <dialog id="orderDialog" class="order-dialog">
-    <form id="orderForm" class="order-form">
-      <div class="dialog-header">
-        <div>
-          <p class="eyebrow">RICHIESTA DI PRODUZIONE</p>
-          <h2>Invia la configurazione</h2>
-        </div>
-        <button id="closeOrderDialog" class="dialog-close" type="button" aria-label="Chiudi">×</button>
-      </div>
-
-      <div class="order-preview">
-        <span>Mattonella configurata</span>
-        <strong id="orderSummary">100 × 100 mm</strong>
-      </div>
-
-      <label for="customerEmail">Email</label>
-      <input id="customerEmail" name="email" type="email" inputmode="email"
-             autocomplete="email" maxlength="254" required
-             placeholder="nome@email.it" />
-
-      <label for="orderQuantity">Quantità</label>
-      <input id="orderQuantity" name="quantity" type="number"
-             min="1" max="10000" step="1" value="1" required />
-
-      <input id="websiteField" class="honeypot" name="website"
-             type="text" tabindex="-1" autocomplete="off" aria-hidden="true" />
-
-      <p class="privacy-note">
-        L’email e il file grafico vengono utilizzati esclusivamente per valutare
-        e gestire questa richiesta. Non vengono richiesti nome, telefono o indirizzo. <a href="./privacy.html" target="_blank" rel="noopener">Informazioni</a>.
-      </p>
-
-      <button id="submitOrder" class="primary" type="submit">
-        Invia richiesta
-      </button>
-
-      <p id="orderStatus" class="order-status" role="status" aria-live="polite"></p>
-    </form>
-  </dialog>
-
 </body>
 </html>
