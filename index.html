@@ -142,14 +142,38 @@
             <p id="textApplyStatus" class="text-apply-status" aria-live="polite"></p>
           </div>
           <div class="text-controls-grid">
-            <div class="control-group">
-              <label for="textFont">Font</label>
-              <select id="textFont">
-                <option value="helvetiker">Moderno</option>
-                <option value="optimer">Elegante</option>
-                <option value="gentilis">Classico</option>
-                <option value="droid_serif">Serif</option>
-              </select>
+            <div class="control-group font-control">
+              <label>Font</label>
+
+              <div id="fontPicker" class="font-picker">
+                <button id="fontPickerButton" class="font-picker-button font-modern"
+                        type="button" aria-expanded="false">
+                  <span id="fontPickerLabel">Moderno</span>
+                  <span class="font-picker-arrow">⌄</span>
+                </button>
+
+                <div id="fontPickerMenu" class="font-picker-menu" hidden>
+                  <button class="font-option font-modern active"
+                          type="button" data-font="helvetiker"
+                          data-label="Moderno">Moderno</button>
+
+                  <button class="font-option font-elegant"
+                          type="button" data-font="optimer"
+                          data-label="Elegante">Elegante</button>
+
+                  <button class="font-option font-classic"
+                          type="button" data-font="gentilis"
+                          data-label="Classico">Classico</button>
+
+                  <button class="font-option font-serif"
+                          type="button" data-font="droid_serif"
+                          data-label="Serif">Serif</button>
+
+                  <button class="font-option font-cursive"
+                          type="button" data-font="cursive"
+                          data-label="Corsivo">Corsivo</button>
+                </div>
+              </div>
             </div>
             <div class="control-group">
               <div class="label-row">

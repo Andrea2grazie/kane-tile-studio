@@ -500,7 +500,8 @@ const LOCAL_FONT_STACKS = {
   helvetiker: '"Helvetica Neue", Arial, sans-serif',
   optimer: '"Avenir Next", "Trebuchet MS", sans-serif',
   gentilis: 'Georgia, "Times New Roman", serif',
-  droid_serif: '"Palatino Linotype", Palatino, Georgia, serif'
+  droid_serif: '"Palatino Linotype", Palatino, Georgia, serif',
+  cursive: '"Brush Script MT", "Segoe Script", "Apple Chancery", cursive'
 };
 
 function createTextRaster(text, fontKey, requestedSizeMm) {
@@ -576,36 +577,6 @@ function createTextRaster(text, fontKey, requestedSizeMm) {
   };
 }
 
-function createInverseAlphaTexture(raster) {
-  const canvas = document.createElement("canvas");
-  canvas.width = raster.width;
-  canvas.height = raster.height;
-
-  const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  ctx.fillStyle = "rgba(255,255,255,1)";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  ctx.globalCompositeOperation = "destination-out";
-  ctx.drawImage(raster.canvas, 0, 0);
-  ctx.globalCompositeOperation = "source-over";
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.NoColorSpace;
-  texture.wrapS = THREE.ClampToEdgeWrapping;
-  texture.wrapT = THREE.ClampToEdgeWrapping;
-  texture.minFilter = THREE.LinearMipmapLinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.generateMipmaps = true;
-  texture.anisotropy = Math.min(
-    16,
-    renderer.capabilities.getMaxAnisotropy()
-  );
-  texture.needsUpdate = true;
-
-  return texture;
-}
 
 function isTextCellFilled(raster, x0, y0, x1, y1) {
   let hits = 0;
@@ -724,35 +695,6 @@ function createInsetTextMaterial(baseMaterial) {
   });
 }
 
-function createCoverMaskPlane(textWidth, textHeight, raster, baseMaterial, baseTop) {
-  const inverseAlpha = createInverseAlphaTexture(raster);
-
-  const material = new THREE.MeshPhysicalMaterial({
-    color: baseMaterial.color.clone(),
-    alphaMap: inverseAlpha,
-    transparent: true,
-    alphaTest: 0.32,
-    roughness: baseMaterial.roughness,
-    metalness: 0,
-    clearcoat: baseMaterial.clearcoat,
-    clearcoatRoughness: baseMaterial.clearcoatRoughness,
-    envMapIntensity: 0.30,
-    side: THREE.DoubleSide,
-    polygonOffset: true,
-    polygonOffsetFactor: -1,
-    polygonOffsetUnits: -1
-  });
-
-  const plane = new THREE.Mesh(
-    new THREE.PlaneGeometry(textWidth, textHeight),
-    material
-  );
-
-  plane.position.z = baseTop + 0.0012;
-  plane.renderOrder = 8;
-  plane.userData.disposableTexture = inverseAlpha;
-  return plane;
-}
 
 function buildTextObject(w, h, baseMaterial, baseTop) {
   const text = state.appliedText.trim();
@@ -794,23 +736,32 @@ function buildTextObject(w, h, baseMaterial, baseTop) {
 
   const group = new THREE.Group();
 
+  // Volume principale ribassato: resta visibile appena sotto la superficie.
   const insetMesh = new THREE.Mesh(
     textGeometry,
     createInsetTextMaterial(baseMaterial)
   );
-  insetMesh.position.z = baseTop - textDepth + 0.0006;
-  insetMesh.renderOrder = 7;
 
-  const coverPlane = createCoverMaskPlane(
-    textWidth,
-    textHeight,
-    raster,
-    baseMaterial,
-    baseTop
+  insetMesh.position.z = baseTop - textDepth * 0.62;
+  insetMesh.renderOrder = 9;
+
+  // Secondo volume molto sottile e più scuro: simula il bordo interno
+  // dell'incisione e rende la scritta leggibile frontalmente.
+  const edgeMaterial = createInsetTextMaterial(baseMaterial);
+  edgeMaterial.color.multiplyScalar(0.72);
+  edgeMaterial.roughness = 0.92;
+
+  const edgeMesh = new THREE.Mesh(
+    textGeometry.clone(),
+    edgeMaterial
   );
 
+  edgeMesh.scale.set(1.025, 1.025, 0.16);
+  edgeMesh.position.z = baseTop - textDepth * 0.08;
+  edgeMesh.renderOrder = 11;
+
   group.add(insetMesh);
-  group.add(coverPlane);
+  group.add(edgeMesh);
   return group;
 }
 
@@ -995,13 +946,71 @@ applyTextButton.addEventListener("click", () => {
   textApplyStatus.className = "text-apply-status success";
 });
 
-document.querySelector("#textFont").addEventListener("change", event => {
-  state.textFont = event.target.value;
+const fontPicker = document.querySelector("#fontPicker");
+const fontPickerButton = document.querySelector("#fontPickerButton");
+const fontPickerMenu = document.querySelector("#fontPickerMenu");
+const fontPickerLabel = document.querySelector("#fontPickerLabel");
+const fontOptions = document.querySelectorAll(".font-option");
 
-  if (state.appliedText) {
-    rebuildTile();
-    textApplyStatus.textContent = "Font aggiornato.";
-    textApplyStatus.className = "text-apply-status success";
+const FONT_CLASS_NAMES = [
+  "font-modern",
+  "font-elegant",
+  "font-classic",
+  "font-serif",
+  "font-cursive"
+];
+
+function closeFontPicker() {
+  fontPicker.classList.remove("open");
+  fontPickerButton.setAttribute("aria-expanded", "false");
+  fontPickerMenu.hidden = true;
+}
+
+fontPickerButton.addEventListener("click", () => {
+  const willOpen = fontPickerMenu.hidden;
+
+  if (willOpen) {
+    fontPicker.classList.add("open");
+    fontPickerButton.setAttribute("aria-expanded", "true");
+    fontPickerMenu.hidden = false;
+  } else {
+    closeFontPicker();
+  }
+});
+
+fontOptions.forEach(option => {
+  option.addEventListener("click", () => {
+    state.textFont = option.dataset.font;
+
+    fontOptions.forEach(item => item.classList.remove("active"));
+    option.classList.add("active");
+
+    FONT_CLASS_NAMES.forEach(name => {
+      fontPickerButton.classList.remove(name);
+    });
+
+    const selectedClass = FONT_CLASS_NAMES.find(name =>
+      option.classList.contains(name)
+    );
+
+    if (selectedClass) {
+      fontPickerButton.classList.add(selectedClass);
+    }
+
+    fontPickerLabel.textContent = option.dataset.label;
+    closeFontPicker();
+
+    if (state.appliedText) {
+      rebuildTile();
+      textApplyStatus.textContent = "Font aggiornato.";
+      textApplyStatus.className = "text-apply-status success";
+    }
+  });
+});
+
+document.addEventListener("click", event => {
+  if (!fontPicker.contains(event.target)) {
+    closeFontPicker();
   }
 });
 
@@ -1023,7 +1032,14 @@ document.querySelector("#textSize").addEventListener("input", event => {
 
 document.querySelector("#textNegative").addEventListener("change", event => {
   state.textNegative = event.target.checked;
-  if (state.appliedText) rebuildTile();
+
+  if (state.appliedText) {
+    rebuildTile();
+    textApplyStatus.textContent = state.textNegative
+      ? "Modalità incisa applicata."
+      : "Modalità in rilievo applicata.";
+    textApplyStatus.className = "text-apply-status success";
+  }
 });
 
 document.querySelector("#textDepth").addEventListener("input", event => {

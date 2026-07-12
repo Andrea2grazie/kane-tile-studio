@@ -752,3 +752,93 @@ select {
 
 /* La scritta usa lo stesso smalto, ma una luce radente ne evidenzia i bordi. */
 
+
+
+.font-picker {
+  position: relative;
+  margin-top: 9px;
+}
+
+.font-picker-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.font-picker-arrow {
+  font-family: Arial, sans-serif;
+  font-size: 18px;
+  line-height: 1;
+  transition: transform .16s ease;
+}
+
+.font-picker.open .font-picker-arrow {
+  transform: rotate(180deg);
+}
+
+.font-picker-menu {
+  position: absolute;
+  z-index: 50;
+  left: 0;
+  right: 0;
+  top: calc(100% + 7px);
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 16px 40px rgba(20, 28, 25, .18);
+}
+
+.font-option {
+  width: 100%;
+  display: block;
+  padding: 12px 13px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.font-option:hover,
+.font-option.active {
+  background: #eeebe2;
+}
+
+.font-modern {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-weight: 700;
+}
+
+.font-elegant {
+  font-family: "Avenir Next", "Trebuchet MS", sans-serif;
+  font-weight: 500;
+  letter-spacing: .02em;
+}
+
+.font-classic {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 700;
+}
+
+.font-serif {
+  font-family: "Palatino Linotype", Palatino, Georgia, serif;
+  font-weight: 600;
+}
+
+.font-cursive {
+  font-family: "Brush Script MT", "Segoe Script", "Apple Chancery", cursive;
+  font-size: 21px;
+  font-weight: 500;
+}

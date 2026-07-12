@@ -242,3 +242,16 @@ alcuni secondi. La risoluzione viene automaticamente bilanciata per non bloccare
   - viene creato un volume del testo ribassato;
   - sopra viene aggiunta una maschera che simula l’apertura del materiale;
   - l’effetto finale è più vicino a un boolean in tempo reale.
+
+
+## Aggiornamento v21
+
+- aggiunto font Corsivo;
+- selettore font personalizzato;
+- ogni voce viene mostrata nello stile del font rappresentato;
+- rimossa la normale tendina di sistema;
+- corretta la modalità incisa;
+- la scritta negativa usa due volumi 3D:
+  - volume ribassato;
+  - bordo interno scuro;
+- eliminata la maschera che nascondeva la scritta incisa.
