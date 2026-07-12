@@ -309,3 +309,19 @@ alcuni secondi. La risoluzione viene automaticamente bilanciata per non bloccare
 - aggiunta freccia per il ritorno;
 - collegamento a `https://www.disegno4d.it/e-commerce/`;
 - adattamento dimensioni per desktop e mobile.
+
+
+## Aggiornamento v28 — link pubblico del progetto
+
+Ogni nuovo ordine salva:
+
+- `project_token`;
+- `project_url`;
+- `public_asset_path`.
+
+Il link riapre la configurazione tecnica della mattonella senza esporre
+email, quantità o stato dell'ordine.
+
+Prima di usare la nuova versione, esegui nel SQL Editor di Supabase:
+
+`supabase/migration_v28_project_links.sql`

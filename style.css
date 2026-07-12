@@ -917,3 +917,44 @@ select {
     font-size: 11px;
   }
 }
+
+
+.project-load-status {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  z-index: 20;
+  max-width: min(420px, calc(100% - 32px));
+  padding: 10px 13px;
+  border-radius: 10px;
+  background: rgba(23, 63, 56, .92);
+  color: white;
+  font-size: 13px;
+  line-height: 1.35;
+  backdrop-filter: blur(8px);
+}
+
+.project-load-status.error {
+  background: rgba(145, 39, 39, .94);
+}
+
+.project-link-result {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(23, 63, 56, .22);
+  border-radius: 10px;
+  background: rgba(23, 63, 56, .055);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.project-link-result strong,
+.project-link-result a {
+  display: block;
+}
+
+.project-link-result a {
+  margin-top: 5px;
+  color: var(--accent);
+  font-weight: 700;
+}

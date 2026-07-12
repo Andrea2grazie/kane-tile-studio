@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Kanè Tile Studio v26 — Configuratore 3D</title>
+  <title>Kanè Tile Studio v28 — Configuratore 3D</title>
   <meta name="description" content="Bozza di configuratore 3D per mattonelle personalizzate." />
   <link rel="stylesheet" href="./style.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -22,7 +22,7 @@
     <div class="brand">
       <span class="brand-mark">K</span>
       <div>
-        <strong>Kanè Tile Studio <span class="version-badge">v26</span></strong>
+        <strong>Kanè Tile Studio <span class="version-badge">v28</span></strong>
         <small>Disegna la tua mattonella</small>
       </div>
     </div>
@@ -34,6 +34,7 @@
       <div id="viewer" aria-label="Anteprima 3D interattiva"></div>
       <div class="viewer-help">Trascina per ruotare · Rotella per zoomare</div>
       <div class="badge">PROTOTIPO</div>
+      <div id="projectLoadStatus" class="project-load-status" hidden></div>
     </section>
 
     <aside class="controls">
@@ -292,6 +293,10 @@
           </button>
 
           <p id="orderStatus" class="order-status" role="status" aria-live="polite"></p>
+          <p id="projectLinkResult" class="project-link-result" hidden>
+            <strong>Link del progetto:</strong>
+            <a id="projectLinkAnchor" href="#" target="_blank" rel="noopener"></a>
+          </p>
         </form>
       </section>
     </aside>

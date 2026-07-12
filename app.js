@@ -64,6 +64,7 @@ const GLAZES = {
 };
 
 const viewer = document.querySelector("#viewer");
+const projectLoadStatus = document.querySelector("#projectLoadStatus");
 const scene = new THREE.Scene();
 scene.background = null;
 
@@ -1156,11 +1157,130 @@ const imageRelief = document.querySelector("#imageRelief");
 const imageContrast = document.querySelector("#imageContrast");
 const invertRelief = document.querySelector("#invertRelief");
 
+async function processReliefImageSource(source, originalFile = null) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+
+    img.onload = () => {
+      try {
+        const isMobileDevice =
+          window.matchMedia("(max-width: 900px)").matches;
+        const maxSize = isMobileDevice ? 1280 : 2048;
+        const ratio = Math.min(
+          maxSize / img.width,
+          maxSize / img.height,
+          1
+        );
+
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(2, Math.round(img.width * ratio));
+        canvas.height = Math.max(2, Math.round(img.height * ratio));
+
+        const ctx = canvas.getContext(
+          "2d",
+          { willReadFrequently: true }
+        );
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        const pixels = ctx.getImageData(
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        ).data;
+
+        const raw = new Float32Array(canvas.width * canvas.height);
+        let minGray = 255;
+        let maxGray = 0;
+
+        for (let i = 0; i < raw.length; i++) {
+          const r = pixels[i * 4];
+          const g = pixels[i * 4 + 1];
+          const b = pixels[i * 4 + 2];
+          const gray =
+            0.2126 * r +
+            0.7152 * g +
+            0.0722 * b;
+
+          raw[i] = gray;
+          minGray = Math.min(minGray, gray);
+          maxGray = Math.max(maxGray, gray);
+        }
+
+        const heights = new Uint8Array(raw.length);
+        const range = Math.max(8, maxGray - minGray);
+
+        for (let i = 0; i < heights.length; i++) {
+          heights[i] = Math.round(
+            ((raw[i] - minGray) / range) * 255
+          );
+        }
+
+        const longestSide = Math.max(
+          canvas.width,
+          canvas.height
+        );
+
+        const blurRadius =
+          longestSide >= 1400 ? 4 :
+          longestSide >= 1000 ? 3 :
+          longestSide >= 700 ? 2 : 1;
+
+        state.heightData = gaussianBlurGray(
+          heights,
+          canvas.width,
+          canvas.height,
+          blurRadius
+        );
+
+        state.heightWidth = canvas.width;
+        state.heightHeight = canvas.height;
+        state.textureEnabled = true;
+
+        if (originalFile) {
+          state.originalFile = originalFile;
+        }
+
+        texturePreview.src = source;
+        texturePreviewWrap.hidden = false;
+        textureEnabled.checked = true;
+        textureEnabled.disabled = false;
+        invertRelief.checked = state.invertRelief;
+        removeTexture.disabled = false;
+        imageRelief.disabled = false;
+        imageContrast.disabled = false;
+        invertRelief.disabled = false;
+
+        rebuildTile();
+        resolve();
+      } catch (error) {
+        reject(error);
+      }
+    };
+
+    img.onerror = () => reject(
+      new Error("Immagine non leggibile.")
+    );
+
+    img.src = source;
+  });
+}
+
 textureFile.addEventListener("change", event => {
   const file = event.target.files?.[0];
   if (!file) return;
 
-  const allowedTypes = ["image/png", "image/jpeg", "image/webp"];
+  const allowedTypes = [
+    "image/png",
+    "image/jpeg",
+    "image/webp"
+  ];
+
   if (!allowedTypes.includes(file.type)) {
     alert("Formato non supportato. Usa PNG, JPG o WEBP.");
     textureFile.value = "";
@@ -1173,84 +1293,20 @@ textureFile.addEventListener("change", event => {
     return;
   }
 
-  state.originalFile = file;
-
   const reader = new FileReader();
-  reader.onload = e => {
-    const img = new Image();
-    img.onload = () => {
-      // Mantiene molta più informazione rispetto alla precedente
-      // elaborazione a 256 px.
-      const isMobileDevice = window.matchMedia("(max-width: 900px)").matches;
-      const maxSize = isMobileDevice ? 1280 : 2048;
-      const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1);
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(2, Math.round(img.width * ratio));
-      canvas.height = Math.max(2, Math.round(img.height * ratio));
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
 
-      // Transparent PNG areas are treated as white background.
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-      const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-      const raw = new Float32Array(canvas.width * canvas.height);
-      let minGray = 255;
-      let maxGray = 0;
-
-      for (let i = 0; i < raw.length; i++) {
-        const r = pixels[i*4];
-        const g = pixels[i*4+1];
-        const b = pixels[i*4+2];
-        const gray = 0.2126*r + 0.7152*g + 0.0722*b;
-        raw[i] = gray;
-        minGray = Math.min(minGray, gray);
-        maxGray = Math.max(maxGray, gray);
-      }
-
-      const heights = new Uint8Array(raw.length);
-      const range = Math.max(8, maxGray - minGray);
-
-      // Normalize contrast so logos and thin lines remain clearly visible.
-      for (let i = 0; i < heights.length; i++) {
-        heights[i] = Math.round(((raw[i] - minGray) / range) * 255);
-      }
-
-      // Una sfocatura molto leggera elimina il gradino del singolo pixel
-      // senza cancellare i dettagli del disegno.
-      const longestSide = Math.max(canvas.width, canvas.height);
-      const blurRadius =
-        longestSide >= 1400 ? 4 :
-        longestSide >= 1000 ? 3 :
-        longestSide >= 700 ? 2 : 1;
-
-      state.heightData = gaussianBlurGray(
-        heights,
-        canvas.width,
-        canvas.height,
-        blurRadius
+  reader.onload = async event => {
+    try {
+      await processReliefImageSource(
+        event.target.result,
+        file
       );
-      state.heightWidth = canvas.width;
-      state.heightHeight = canvas.height;
-      state.textureEnabled = true;
-
-      texturePreview.src = e.target.result;
-      texturePreviewWrap.hidden = false;
-      textureEnabled.checked = true;
-      textureEnabled.disabled = false;
-      invertRelief.checked = state.invertRelief;
-      removeTexture.disabled = false;
-      imageRelief.disabled = false;
-      imageContrast.disabled = false;
-      invertRelief.disabled = false;
-      rebuildTile();
-    };
-    img.onerror = () => alert("Immagine non leggibile.");
-    img.src = e.target.result;
+    } catch (error) {
+      console.error(error);
+      alert("Immagine non leggibile.");
+    }
   };
+
   reader.readAsDataURL(file);
 });
 
@@ -1284,6 +1340,8 @@ const orderForm = document.querySelector("#orderForm");
 const submitOrder = document.querySelector("#submitOrder");
 const orderStatus = document.querySelector("#orderStatus");
 const orderSummary = document.querySelector("#orderSummary");
+const projectLinkResult = document.querySelector("#projectLinkResult");
+const projectLinkAnchor = document.querySelector("#projectLinkAnchor");
 
 function isSupabaseConfigured() {
   const cfg = window.KANE_CONFIG || {};
@@ -1304,41 +1362,284 @@ function safeExtension(file) {
   return map[file?.type] || "bin";
 }
 
-function makeOrderCode() {
-  const shortId = crypto.randomUUID().split("-")[0].toUpperCase();
+function createCompatibleUuid() {
+  if (window.crypto?.randomUUID) {
+    return window.crypto.randomUUID();
+  }
+
+  const bytes = new Uint8Array(16);
+
+  if (window.crypto?.getRandomValues) {
+    window.crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+  const hex = Array.from(
+    bytes,
+    value => value.toString(16).padStart(2, "0")
+  ).join("");
+
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20)
+  ].join("-");
+}
+
+function makeOrderCode(orderId) {
+  const shortId = orderId.split("-")[0].toUpperCase();
   const year = new Date().getFullYear();
   return `KANE-${year}-${shortId}`;
 }
 
+function makeProjectUrl(projectToken) {
+  const url = new URL(window.location.href);
+  url.search = "";
+  url.hash = "";
+  url.searchParams.set("project", projectToken);
+  return url.toString();
+}
+
+function showProjectLoadStatus(message, type = "") {
+  projectLoadStatus.hidden = false;
+  projectLoadStatus.textContent = message;
+  projectLoadStatus.className = type
+    ? `project-load-status ${type}`
+    : "project-load-status";
+}
+
+function hideProjectLoadStatus() {
+  projectLoadStatus.hidden = true;
+  projectLoadStatus.textContent = "";
+  projectLoadStatus.className = "project-load-status";
+}
+
+
+function applyConfigurationToControls(configuration) {
+  state.width = Number(configuration.width_mm) || 100;
+  state.height = Number(configuration.height_mm) || 100;
+  state.glaze = configuration.glaze_code || "sabbia";
+  state.frameStyle = configuration.frame_style || "classic";
+  state.serviceType =
+    configuration.service_type === "image"
+      ? "image"
+      : "text";
+  state.imageRelief =
+    Number(configuration.image_relief_mm) || 3;
+  state.imageContrast =
+    Number(configuration.image_contrast_percent) || 100;
+  state.invertRelief =
+    configuration.dark_areas_raised !== false;
+  state.tileText = configuration.custom_text || "";
+  state.appliedText = configuration.custom_text || "";
+  state.textFont = configuration.text_font || "helvetiker";
+  state.textSize = Number(configuration.text_size_mm) || 14;
+  state.textDepth = Number(configuration.text_depth_mm) || 2;
+
+  document.querySelector("#width").value = state.width;
+  document.querySelector("#height").value = state.height;
+  document.querySelector("#glaze").value = state.glaze;
+  document.querySelector("#frameStyle").value = state.frameStyle;
+  document.querySelector("#imageRelief").value = state.imageRelief;
+  document.querySelector("#imageContrast").value = state.imageContrast;
+  document.querySelector("#invertRelief").checked = state.invertRelief;
+  document.querySelector("#tileText").value = state.appliedText;
+  document.querySelector("#textSize").value = state.textSize;
+  document.querySelector("#textDepth").value = state.textDepth;
+
+  const fontOption = document.querySelector(
+    `.font-option[data-font="${state.textFont}"]`
+  );
+
+  if (fontOption) {
+    document.querySelectorAll(".font-option").forEach(
+      option => option.classList.remove("active")
+    );
+    fontOption.classList.add("active");
+
+    FONT_CLASS_NAMES.forEach(name => {
+      fontPickerButton.classList.remove(name);
+    });
+
+    const selectedClass = FONT_CLASS_NAMES.find(name =>
+      fontOption.classList.contains(name)
+    );
+
+    if (selectedClass) {
+      fontPickerButton.classList.add(selectedClass);
+    }
+
+    fontPickerLabel.textContent =
+      fontOption.dataset.label;
+  }
+
+  updateServiceVisibility();
+  rebuildTile();
+}
+
+async function loadPublicProjectFromUrl() {
+  const projectToken = new URLSearchParams(
+    window.location.search
+  ).get("project");
+
+  if (!projectToken) return false;
+
+  if (!isSupabaseConfigured()) {
+    showProjectLoadStatus(
+      "Impossibile caricare il progetto: Supabase non è configurato.",
+      "error"
+    );
+    return false;
+  }
+
+  try {
+    showProjectLoadStatus(
+      "Caricamento del progetto del cliente…"
+    );
+
+    const cfg = window.KANE_CONFIG;
+    const supabaseClient = window.supabase.createClient(
+      cfg.supabaseUrl,
+      cfg.supabaseAnonKey
+    );
+
+    const { data, error } = await supabaseClient.rpc(
+      "get_public_project",
+      { p_token: projectToken }
+    );
+
+    if (error) throw error;
+
+    const project = Array.isArray(data) ? data[0] : data;
+
+    if (!project?.configuration) {
+      throw new Error("Progetto non trovato.");
+    }
+
+    applyConfigurationToControls(project.configuration);
+
+    if (
+      project.configuration.service_type === "image" &&
+      project.public_asset_path
+    ) {
+      const { data: publicUrlData } =
+        supabaseClient.storage
+          .from("project-assets")
+          .getPublicUrl(project.public_asset_path);
+
+      const assetUrl = publicUrlData?.publicUrl;
+
+      if (!assetUrl) {
+        throw new Error(
+          "Immagine del progetto non disponibile."
+        );
+      }
+
+      const response = await fetch(assetUrl);
+
+      if (!response.ok) {
+        throw new Error(
+          "Impossibile scaricare l’immagine del progetto."
+        );
+      }
+
+      const blob = await response.blob();
+      const fileName =
+        project.public_asset_path.split("/").pop() ||
+        "project-image.png";
+
+      const restoredFile = new File(
+        [blob],
+        fileName,
+        { type: blob.type || "image/png" }
+      );
+
+      const objectUrl = URL.createObjectURL(blob);
+
+      await processReliefImageSource(
+        objectUrl,
+        restoredFile
+      );
+    }
+
+    showProjectLoadStatus(
+      "Progetto del cliente caricato."
+    );
+
+    setTimeout(hideProjectLoadStatus, 3500);
+    fitCameraToTile();
+    return true;
+
+  } catch (error) {
+    console.error("Errore caricamento progetto:", error);
+    showProjectLoadStatus(
+      error?.message ||
+      "Non è stato possibile caricare il progetto.",
+      "error"
+    );
+    return false;
+  }
+}
 
 orderForm.addEventListener("submit", async event => {
   event.preventDefault();
 
   if (document.querySelector("#websiteField").value) return;
 
-  const email = document.querySelector("#customerEmail").value.trim().toLowerCase();
-  const quantity = Number(document.querySelector("#orderQuantity").value);
+  const email = document
+    .querySelector("#customerEmail")
+    .value
+    .trim()
+    .toLowerCase();
+
+  const quantity = Number(
+    document.querySelector("#orderQuantity").value
+  );
+
+  projectLinkResult.hidden = true;
 
   if (!email || !email.includes("@")) {
-    orderStatus.textContent = "Inserisci un indirizzo email valido.";
+    orderStatus.textContent =
+      "Inserisci un indirizzo email valido.";
     orderStatus.className = "order-status error";
     return;
   }
 
-  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 10000) {
-    orderStatus.textContent = "Inserisci una quantità valida.";
+  if (
+    !Number.isInteger(quantity) ||
+    quantity < 1 ||
+    quantity > 10000
+  ) {
+    orderStatus.textContent =
+      "Inserisci una quantità valida.";
     orderStatus.className = "order-status error";
     return;
   }
 
-  if (state.serviceType === "image" && (!state.originalFile || !state.heightData)) {
-    orderStatus.textContent = "Carica prima l’immagine da trasformare in rilievo.";
+  if (
+    state.serviceType === "image" &&
+    (!state.originalFile || !state.heightData)
+  ) {
+    orderStatus.textContent =
+      "Carica prima l’immagine da trasformare in rilievo.";
     orderStatus.className = "order-status error";
     return;
   }
 
-  if (state.serviceType === "text" && !state.appliedText.trim()) {
-    orderStatus.textContent = "Inserisci prima la scritta da applicare alla mattonella.";
+  if (
+    state.serviceType === "text" &&
+    !state.appliedText.trim()
+  ) {
+    orderStatus.textContent =
+      "Inserisci prima la scritta da applicare alla mattonella.";
     orderStatus.className = "order-status error";
     return;
   }
@@ -1352,7 +1653,8 @@ orderForm.addEventListener("submit", async event => {
 
   submitOrder.disabled = true;
   submitOrder.textContent = "Invio in corso…";
-  orderStatus.textContent = "Caricamento del file e salvataggio della richiesta…";
+  orderStatus.textContent =
+    "Salvataggio dell’ordine e creazione del link progetto…";
   orderStatus.className = "order-status";
 
   const cfg = window.KANE_CONFIG;
@@ -1361,24 +1663,64 @@ orderForm.addEventListener("submit", async event => {
     cfg.supabaseAnonKey
   );
 
-  const orderId = crypto.randomUUID();
-  const orderCode = makeOrderCode();
-  const extension = state.originalFile ? safeExtension(state.originalFile) : "txt";
-  const filePath = state.serviceType === "image"
-    ? `${orderId}/original.${extension}`
-    : `${orderId}/text-order.txt`;
+  const orderId = createCompatibleUuid();
+  const projectToken = createCompatibleUuid();
+  const orderCode = makeOrderCode(orderId);
+  const projectUrl = makeProjectUrl(projectToken);
+
+  const extension = state.originalFile
+    ? safeExtension(state.originalFile)
+    : "txt";
+
+  const privateFilePath =
+    state.serviceType === "image"
+      ? `${orderId}/original.${extension}`
+      : `${orderId}/text-order.txt`;
+
+  const publicAssetPath =
+    state.serviceType === "image"
+      ? `${projectToken}/source.${extension}`
+      : null;
 
   try {
     if (state.serviceType === "image") {
-      const { error: uploadError } = await supabaseClient.storage
-        .from(cfg.storageBucket || "order-files")
-        .upload(filePath, state.originalFile, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType: state.originalFile.type
-        });
+      const { error: privateUploadError } =
+        await supabaseClient.storage
+          .from(cfg.storageBucket || "order-files")
+          .upload(
+            privateFilePath,
+            state.originalFile,
+            {
+              cacheControl: "3600",
+              upsert: false,
+              contentType: state.originalFile.type
+            }
+          );
 
-      if (uploadError) throw uploadError;
+      if (privateUploadError) {
+        throw privateUploadError;
+      }
+
+      const { error: publicUploadError } =
+        await supabaseClient.storage
+          .from("project-assets")
+          .upload(
+            publicAssetPath,
+            state.originalFile,
+            {
+              cacheControl: "31536000",
+              upsert: false,
+              contentType: state.originalFile.type
+            }
+          );
+
+      if (publicUploadError) {
+        await supabaseClient.storage
+          .from(cfg.storageBucket || "order-files")
+          .remove([privateFilePath]);
+
+        throw publicUploadError;
+      }
     }
 
     const configuration = {
@@ -1389,14 +1731,27 @@ orderForm.addEventListener("submit", async event => {
       image_contrast_percent: state.imageContrast,
       dark_areas_raised: state.invertRelief,
       glaze_code: state.glaze,
-      glaze_label: (GLAZES[state.glaze] || GLAZES.sabbia).label,
-      glaze_preview_color: (GLAZES[state.glaze] || GLAZES.sabbia).color,
+      glaze_label:
+        (GLAZES[state.glaze] || GLAZES.sabbia).label,
+      glaze_preview_color:
+        (GLAZES[state.glaze] || GLAZES.sabbia).color,
       service_type: state.serviceType,
-      custom_text: state.serviceType === "text" ? state.appliedText.trim() : "",
-      text_font: state.serviceType === "text" ? state.textFont : null,
-      text_size_mm: state.serviceType === "text" ? state.textSize : null,
-
-      text_depth_mm: state.serviceType === "text" ? state.textDepth : null,
+      custom_text:
+        state.serviceType === "text"
+          ? state.appliedText.trim()
+          : "",
+      text_font:
+        state.serviceType === "text"
+          ? state.textFont
+          : null,
+      text_size_mm:
+        state.serviceType === "text"
+          ? state.textSize
+          : null,
+      text_depth_mm:
+        state.serviceType === "text"
+          ? state.textDepth
+          : null,
       frame_style: state.frameStyle,
       estimated_price_per_sqm_eur: Number(
         estimatePricePerSquareMeter().toFixed(2)
@@ -1405,41 +1760,63 @@ orderForm.addEventListener("submit", async event => {
       minimum_price_per_sqm_eur: 45
     };
 
-    const { error: insertError } = await supabaseClient
-      .from("orders")
-      .insert({
-        id: orderId,
-        order_code: orderCode,
-        email,
-        quantity,
-        configuration,
-        source_file_path: filePath,
-        status: "nuovo"
-      });
+    const { error: insertError } =
+      await supabaseClient
+        .from("orders")
+        .insert({
+          id: orderId,
+          order_code: orderCode,
+          email,
+          quantity,
+          configuration,
+          source_file_path: privateFilePath,
+          project_token: projectToken,
+          project_url: projectUrl,
+          public_asset_path: publicAssetPath,
+          status: "nuovo"
+        });
 
     if (insertError) {
+      const cleanupTasks = [];
+
       if (state.serviceType === "image") {
-        await supabaseClient.storage
-          .from(cfg.storageBucket || "order-files")
-          .remove([filePath]);
+        cleanupTasks.push(
+          supabaseClient.storage
+            .from(cfg.storageBucket || "order-files")
+            .remove([privateFilePath])
+        );
+
+        cleanupTasks.push(
+          supabaseClient.storage
+            .from("project-assets")
+            .remove([publicAssetPath])
+        );
       }
+
+      await Promise.allSettled(cleanupTasks);
       throw insertError;
     }
 
     orderStatus.textContent =
-      `Richiesta inviata. Il codice è ${orderCode}. Riceverai la risposta all’email indicata.`;
+      `Richiesta inviata. Codice ordine: ${orderCode}.`;
     orderStatus.className = "order-status success";
-    submitOrder.textContent = "Proponi ordine";
+
+    projectLinkAnchor.href = projectUrl;
+    projectLinkAnchor.textContent = projectUrl;
+    projectLinkResult.hidden = false;
 
     orderForm.reset();
     document.querySelector("#orderQuantity").value = "1";
-    submitOrder.disabled = false;
 
   } catch (error) {
     console.error(error);
     orderStatus.textContent =
-      "Invio non riuscito. Controlla la configurazione Supabase e riprova.";
+      error?.message
+        ? `Invio non riuscito: ${error.message}`
+        : "Invio non riuscito. Controlla Supabase e riprova.";
     orderStatus.className = "order-status error";
+
+  } finally {
     submitOrder.disabled = false;
     submitOrder.textContent = "Proponi ordine";
   }
@@ -1521,11 +1898,13 @@ resize();
 updateServiceVisibility();
 rebuildTile();
 
+requestAnimationFrame(async () => {
+  const loadedProject = await loadPublicProjectFromUrl();
 
-requestAnimationFrame(() => {
-  if (!hasInitialCameraFrame) {
+  if (!loadedProject) {
     fitCameraToTile();
-    hasInitialCameraFrame = true;
   }
+
+  hasInitialCameraFrame = true;
   animate();
 });
