@@ -43,6 +43,12 @@
         <p>Modifica misure, rilievo e smalto. L’anteprima si aggiorna in tempo reale.</p>
       </div>
 
+      <section class="editor-section">
+        <div class="section-heading">
+          <span>DIMENSIONI</span>
+          <strong>Formato della mattonella</strong>
+        </div>
+
       <div class="control-group">
         <div class="label-row">
           <label for="width">Larghezza</label>
@@ -61,23 +67,12 @@
 
       <div class="control-group">
         <div class="label-row">
-          <label for="relief">Profondità rilievo</label>
-          <output id="reliefOut">2.5 mm</output>
+          <label for="relief">Spessore mattonella</label>
+          <output id="reliefOut">8.0 mm</output>
         </div>
-        <input id="relief" type="range" min="1" max="6" value="2.5" step="0.5" />
+        <input id="relief" type="range" min="6" max="14" value="8" step="0.5" />
       </div>
-
-      <div class="control-group">
-        <label for="motif">Motivo</label>
-        <select id="motif">
-          <option value="diamond">Intreccio geometrico</option>
-          <option value="sun">Rosone mediterraneo</option>
-          <option value="waves">Onde</option>
-          <option value="minimal">Segno minimale</option>
-        </select>
-      </div>
-
-      <div class="control-group">
+<div class="control-group">
         <label for="glaze">Smalto</label>
         <select id="glaze">
           <option value="nero_opaco">Nero opaco</option>
@@ -88,7 +83,9 @@
           <option value="altro">Altro colore da concordare</option>
         </select>
       </div>
+      </section>
 
+      <div class="section-divider" aria-hidden="true"><span></span></div>
 
       <section class="relief-section">
         <div class="relief-section-title">
@@ -133,7 +130,10 @@
         </div>
       </div>
       </section>
-<div class="summary">
+
+      <div class="section-divider" aria-hidden="true"><span></span></div>
+
+      <div class="summary">
         <div>
           <span>Configurazione</span>
           <strong id="summaryText">100 × 100 mm</strong>
@@ -143,6 +143,8 @@
           <strong id="price">€ 29,00</strong>
         </div>
       </div>
+
+      <div class="section-divider" aria-hidden="true"><span></span></div>
 
       <section class="order-inline" aria-labelledby="orderTitle">
         <p class="eyebrow">RICHIESTA DI PRODUZIONE</p>

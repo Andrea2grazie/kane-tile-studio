@@ -25,7 +25,7 @@ const GLAZES = {
   },
   sabbia: {
     label: "Sabbia",
-    color: "#c8ad86",
+    color: "#b99463",
     roughness: 0.62
   },
   altro: {
@@ -38,8 +38,8 @@ const GLAZES = {
 const viewer = document.querySelector("#viewer");
 const scene = new THREE.Scene();
 
-const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
-camera.position.set(0, 2.15, 3.45);
+const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 100);
+camera.position.set(0, 0.1, 3.05);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -47,7 +47,7 @@ renderer.shadowMap.enabled = false;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.72;
+renderer.toneMappingExposure = 0.95;
 viewer.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -56,35 +56,29 @@ controls.target.set(0, 0, 0);
 controls.minDistance = 2;
 controls.maxDistance = 7;
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0x777777, 1.15));
+const ambient = new THREE.AmbientLight(0xffffff, 1.7);
+scene.add(ambient);
 
-const key = new THREE.DirectionalLight(0xffffff, 1.15);
-key.position.set(3.5, 5, 4);
-key.castShadow = true;
-key.shadow.mapSize.set(2048, 2048);
+const key = new THREE.DirectionalLight(0xffffff, 1.8);
+key.position.set(2.8, 3.5, 4);
 scene.add(key);
 
-const fill = new THREE.DirectionalLight(0xffffff, 0.38);
-fill.position.set(-4, 2, 1);
+const fill = new THREE.DirectionalLight(0xdfe9ff, 0.75);
+fill.position.set(-3, 1.5, 3);
 scene.add(fill);
-
-const grazing = new THREE.DirectionalLight(0xffffff, 0.52);
-grazing.position.set(-3.5, 0.6, 4.5);
-scene.add(grazing);
 
 
 
 
 const tileGroup = new THREE.Group();
-tileGroup.rotation.x = -0.34;
-tileGroup.rotation.y = 0.42;
+tileGroup.rotation.x = -0.12;
+tileGroup.rotation.y = 0.24;
 scene.add(tileGroup);
 
 const state = {
   width: 100,
   height: 100,
-  relief: 2.5,
-  motif: "diamond",
+  relief: 8,
   glaze: "sabbia",
   textureEnabled: false,
   imageRelief: 3,
@@ -211,54 +205,6 @@ function buildHeightmapRelief(w, h, material, baseTop) {
   return mesh;
 }
 
-function addBar(group, material, x, y, w, h, z, rotation = 0, depth = .045) {
-  const shape = roundedRectShape(w, h, Math.min(w, h) * .18);
-  const mesh = extrudedShape(shape, depth, material, z);
-  mesh.position.x += x;
-  mesh.position.y += y;
-  mesh.rotation.z = rotation;
-  group.add(mesh);
-}
-
-function buildDefaultMotif(material, z, scale) {
-  const motif = new THREE.Group();
-  const d = .045 + state.relief / 1000 * 1.2;
-
-  if (state.motif === "diamond") {
-    addBar(motif, material, 0, 0, .52 * scale, .12 * scale, z, Math.PI / 4, d);
-    addBar(motif, material, 0, 0, .52 * scale, .12 * scale, z, -Math.PI / 4, d);
-  } else if (state.motif === "sun") {
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(.22 * scale, .045 * scale, 12, 64), material);
-    ring.position.z = z;
-    motif.add(ring);
-    for (let i = 0; i < 12; i++) {
-      const a = i / 12 * Math.PI * 2;
-      addBar(motif, material, Math.cos(a)*.38*scale, Math.sin(a)*.38*scale, .19*scale, .055*scale, z, a, d);
-    }
-  } else if (state.motif === "waves") {
-    for (let row = -2; row <= 2; row++) {
-      for (let i = -2; i <= 2; i++) {
-        const curve = new THREE.CatmullRomCurve3([
-          new THREE.Vector3((-0.16+i*.19)*scale, (row*.14)*scale, z),
-          new THREE.Vector3((-0.08+i*.19)*scale, (row*.14+.055)*scale, z),
-          new THREE.Vector3((i*.19)*scale, (row*.14)*scale, z),
-          new THREE.Vector3((0.08+i*.19)*scale, (row*.14-.055)*scale, z),
-          new THREE.Vector3((0.16+i*.19)*scale, (row*.14)*scale, z)
-        ]);
-        const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, 24, .018*scale, 8, false), material);
-        motif.add(tube);
-      }
-    }
-  } else {
-    addBar(motif, material, 0, 0, .72*scale, .075*scale, z, 0, d);
-    addBar(motif, material, 0, 0, .72*scale, .075*scale, z, Math.PI/2, d);
-    addBar(motif, material, 0, 0, .48*scale, .075*scale, z, Math.PI/4, d);
-    addBar(motif, material, 0, 0, .48*scale, .075*scale, z, -Math.PI/4, d);
-  }
-
-  tileGroup.add(motif);
-}
-
 function flashViewer() {
   const panel = document.querySelector(".viewer-panel");
   panel.classList.remove("viewer-updated");
@@ -271,8 +217,7 @@ function rebuildTile() {
 
   const w = state.width / 100;
   const h = state.height / 100;
-  const thickness = .16;
-  const reliefDepth = .028 + state.relief / 1000 * 1.8;
+  const thickness = state.relief / 100;
 
   const glaze = GLAZES[state.glaze] || GLAZES.sabbia;
   const glazeColor = new THREE.Color(glaze.color);
@@ -285,7 +230,8 @@ function rebuildTile() {
     clearcoatRoughness: glaze.roughness < 0.3 ? 0.12 : 0.45,
     sheen: 0.18,
     sheenRoughness: 0.72,
-    reflectivity: 0.34
+    reflectivity: 0.4,
+    side: THREE.DoubleSide
   });
 
   // Stesso identico materiale per base e rilievo:
@@ -297,23 +243,19 @@ function rebuildTile() {
   tileGroup.add(base);
 
   const baseTop = thickness / 2;
-  const reliefZ = baseTop + reliefDepth / 2;
-
   if (state.textureEnabled && state.heightData) {
     tileGroup.add(buildHeightmapRelief(w, h, reliefMat, baseTop));
-  } else {
-    buildDefaultMotif(reliefMat, reliefZ, Math.min(w,h));
   }
 
   const maxSide = Math.max(w,h);
-  tileGroup.scale.setScalar(1.25 / maxSide);
+  tileGroup.scale.setScalar(1.72 / maxSide);
   updateUi();
   flashViewer();
 }
 
 function estimatePrice() {
   const areaFactor = (state.width * state.height) / 10000;
-  const reliefFactor = state.textureEnabled ? state.imageRelief * 1.8 : state.relief * 1.2;
+  const reliefFactor = state.textureEnabled ? state.imageRelief * 1.8 : 0;
   return 20 + areaFactor * 6 + reliefFactor + (state.textureEnabled ? 8 : 0);
 }
 
@@ -345,7 +287,6 @@ function bindRange(id, key, numeric = true) {
 bindRange("width", "width");
 bindRange("height", "height");
 bindRange("relief", "relief");
-bindRange("motif", "motif", false);
 bindRange("imageRelief", "imageRelief");
 bindRange("imageContrast", "imageContrast");
 
@@ -361,9 +302,9 @@ document.querySelector("#glaze").addEventListener("change", event => {
 });
 
 document.querySelector("#resetView").addEventListener("click", () => {
-  camera.position.set(0, 2.15, 3.45);
+  camera.position.set(0, 0.1, 3.05);
   controls.target.set(0, 0, 0);
-  tileGroup.rotation.set(-0.42, 0.42, 0);
+  tileGroup.rotation.set(-0.12, 0.24, 0);
   controls.update();
 });
 
@@ -576,7 +517,7 @@ orderForm.addEventListener("submit", async event => {
     const configuration = {
       width_mm: state.width,
       height_mm: state.height,
-      base_relief_mm: state.relief,
+      tile_thickness_mm: state.relief,
       image_relief_mm: state.imageRelief,
       image_contrast_percent: state.imageContrast,
       dark_areas_raised: state.invertRelief,
