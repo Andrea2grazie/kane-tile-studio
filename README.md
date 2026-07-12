@@ -255,3 +255,14 @@ alcuni secondi. La risoluzione viene automaticamente bilanciata per non bloccare
   - volume ribassato;
   - bordo interno scuro;
 - eliminata la maschera che nascondeva la scritta incisa.
+
+
+## Aggiornamento v22
+
+- risoluzione del modello testo aumentata sensibilmente;
+- campionamento alpha più preciso e meno dentellato;
+- supporto testo multilinea fino a quattro righe;
+- campo testo trasformato in textarea;
+- allineamento per riga: sinistra, centro o destra;
+- modalità negativa resa sempre visibile con fondo inciso e bordo interno;
+- allineamento salvato nella configurazione dell'ordine.

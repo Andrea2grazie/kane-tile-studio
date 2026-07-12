@@ -201,6 +201,7 @@ const state = {
   appliedText: "",
   textFont: "helvetiker",
   textSize: 14,
+  textAlign: "center",
   textNegative: false,
   textDepth: 2,
   frameStyle: "classic"
@@ -504,16 +505,22 @@ const LOCAL_FONT_STACKS = {
   cursive: '"Brush Script MT", "Segoe Script", "Apple Chancery", cursive'
 };
 
-function createTextRaster(text, fontKey, requestedSizeMm) {
+function createTextRaster(text, fontKey, requestedSizeMm, alignment) {
   const canvas = document.createElement("canvas");
-  canvas.width = 2048;
-  canvas.height = 768;
+  canvas.width = 3072;
+  canvas.height = 1536;
 
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   const fontStack =
     LOCAL_FONT_STACKS[fontKey] || LOCAL_FONT_STACKS.helvetiker;
+
+  const lines = text
+    .replace(/\r/g, "")
+    .split("\n")
+    .slice(0, 4)
+    .map(line => line || " ");
 
   const normalizedSize = THREE.MathUtils.clamp(
     (requestedSizeMm - 6) / (32 - 6),
@@ -522,23 +529,54 @@ function createTextRaster(text, fontKey, requestedSizeMm) {
   );
 
   let fontSize = Math.round(
-    THREE.MathUtils.lerp(170, 520, normalizedSize)
+    THREE.MathUtils.lerp(220, 650, normalizedSize)
   );
 
-  const maxWidth = canvas.width * 0.90;
+  const maxWidth = canvas.width * 0.88;
+  const maxHeight = canvas.height * 0.82;
+  const lineSpacingFactor = 1.12;
 
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "rgba(255,255,255,1)";
-
-  while (fontSize > 70) {
+  function measureCurrentFont() {
     ctx.font = `700 ${fontSize}px ${fontStack}`;
-    if (ctx.measureText(text).width <= maxWidth) break;
+    const widths = lines.map(line => ctx.measureText(line).width);
+    return {
+      widths,
+      widest: Math.max(...widths, 1),
+      blockHeight: fontSize * lineSpacingFactor * lines.length
+    };
+  }
+
+  let metrics = measureCurrentFont();
+  while (
+    fontSize > 72 &&
+    (metrics.widest > maxWidth || metrics.blockHeight > maxHeight)
+  ) {
     fontSize -= 8;
+    metrics = measureCurrentFont();
   }
 
   ctx.font = `700 ${fontSize}px ${fontStack}`;
-  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "rgba(255,255,255,1)";
+
+  const blockWidth = metrics.widest;
+  const lineHeight = fontSize * lineSpacingFactor;
+  const firstY = canvas.height / 2 - ((lines.length - 1) * lineHeight) / 2;
+
+  let anchorX = canvas.width / 2;
+  if (alignment === "left") {
+    ctx.textAlign = "left";
+    anchorX = canvas.width / 2 - blockWidth / 2;
+  } else if (alignment === "right") {
+    ctx.textAlign = "right";
+    anchorX = canvas.width / 2 + blockWidth / 2;
+  } else {
+    ctx.textAlign = "center";
+  }
+
+  lines.forEach((line, index) => {
+    ctx.fillText(line, anchorX, firstY + index * lineHeight);
+  });
 
   const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const data = image.data;
@@ -549,7 +587,7 @@ function createTextRaster(text, fontKey, requestedSizeMm) {
   for (let y = 0; y < canvas.height; y++) {
     for (let x = 0; x < canvas.width; x++) {
       const alpha = data[(y * canvas.width + x) * 4 + 3];
-      if (alpha > 20) {
+      if (alpha > 12) {
         found = true;
         if (x < minX) minX = x;
         if (y < minY) minY = y;
@@ -560,7 +598,10 @@ function createTextRaster(text, fontKey, requestedSizeMm) {
   }
 
   if (!found) {
-    minX = 0; minY = 0; maxX = canvas.width - 1; maxY = canvas.height - 1;
+    minX = 0;
+    minY = 0;
+    maxX = canvas.width - 1;
+    maxY = canvas.height - 1;
   }
 
   const contentWidth = Math.max(1, maxX - minX + 1);
@@ -573,7 +614,8 @@ function createTextRaster(text, fontKey, requestedSizeMm) {
     width: canvas.width,
     height: canvas.height,
     bounds: { minX, minY, maxX, maxY, contentWidth, contentHeight },
-    aspect: contentWidth / contentHeight
+    aspect: contentWidth / contentHeight,
+    lineCount: lines.length
   };
 }
 
@@ -582,27 +624,28 @@ function isTextCellFilled(raster, x0, y0, x1, y1) {
   let hits = 0;
   let total = 0;
 
-  for (let y = y0; y < y1; y += 2) {
-    for (let x = x0; x < x1; x += 2) {
+  for (let y = y0; y < y1; y += 1) {
+    for (let x = x0; x < x1; x += 1) {
       const alpha = raster.data[(y * raster.width + x) * 4 + 3];
-      if (alpha > 80) hits++;
+      if (alpha > 48) hits++;
       total++;
     }
   }
 
-  return total > 0 && (hits / total) > 0.28;
+  return total > 0 && (hits / total) > 0.18;
 }
 
 function buildVoxelTextGeometry(textWidth, textHeight, textDepth, raster) {
+  const isMobileText = window.matchMedia("(max-width: 900px)").matches;
   const rows = THREE.MathUtils.clamp(
-    Math.round(textHeight * 520),
-    28,
-    96
+    Math.round(textHeight * (isMobileText ? 900 : 1250)),
+    isMobileText ? 72 : 96,
+    isMobileText ? 150 : 220
   );
   const cols = THREE.MathUtils.clamp(
     Math.round(rows * raster.aspect),
-    32,
-    260
+    isMobileText ? 90 : 120,
+    isMobileText ? 420 : 620
   );
 
   const cellW = textWidth / cols;
@@ -633,7 +676,7 @@ function buildVoxelTextGeometry(textWidth, textHeight, textDepth, raster) {
         const runEnd = col;
         const runCols = runEnd - runStart;
         const boxW = runCols * cellW;
-        const boxH = cellH * 0.94;
+        const boxH = cellH * 1.04;
 
         const geom = new THREE.BoxGeometry(
           boxW,
@@ -700,10 +743,10 @@ function buildTextObject(w, h, baseMaterial, baseTop) {
   const text = state.appliedText.trim();
   if (!text) return null;
 
-  const raster = createTextRaster(text, state.textFont, state.textSize);
+  const raster = createTextRaster(text, state.textFont, state.textSize, state.textAlign);
 
   let textHeight = state.textSize / 100;
-  textHeight = Math.min(textHeight, h * 0.28);
+  textHeight = Math.min(textHeight * Math.max(1, raster.lineCount * 0.92), h * 0.46);
 
   let textWidth = textHeight * raster.aspect;
   const maxWidth = w * 0.70;
@@ -736,32 +779,31 @@ function buildTextObject(w, h, baseMaterial, baseTop) {
 
   const group = new THREE.Group();
 
-  // Volume principale ribassato: resta visibile appena sotto la superficie.
-  const insetMesh = new THREE.Mesh(
-    textGeometry,
+  const floorGeometry = textGeometry.clone();
+  floorGeometry.scale(0.985, 0.985, 0.18);
+
+  const floorMesh = new THREE.Mesh(
+    floorGeometry,
     createInsetTextMaterial(baseMaterial)
   );
 
-  insetMesh.position.z = baseTop - textDepth * 0.62;
-  insetMesh.renderOrder = 9;
+  floorMesh.position.z = baseTop - textDepth * 0.16 + 0.0012;
+  floorMesh.renderOrder = 12;
 
-  // Secondo volume molto sottile e più scuro: simula il bordo interno
-  // dell'incisione e rende la scritta leggibile frontalmente.
-  const edgeMaterial = createInsetTextMaterial(baseMaterial);
-  edgeMaterial.color.multiplyScalar(0.72);
-  edgeMaterial.roughness = 0.92;
+  const rimMaterial = createRaisedTextMaterial(baseMaterial);
+  rimMaterial.color.multiplyScalar(0.78);
+  rimMaterial.roughness = Math.min(1, rimMaterial.roughness + 0.18);
+  rimMaterial.clearcoat = 0.10;
 
-  const edgeMesh = new THREE.Mesh(
-    textGeometry.clone(),
-    edgeMaterial
-  );
+  const rimGeometry = textGeometry.clone();
+  rimGeometry.scale(1.035, 1.035, 0.055);
 
-  edgeMesh.scale.set(1.025, 1.025, 0.16);
-  edgeMesh.position.z = baseTop - textDepth * 0.08;
-  edgeMesh.renderOrder = 11;
+  const rimMesh = new THREE.Mesh(rimGeometry, rimMaterial);
+  rimMesh.position.z = baseTop + 0.0007;
+  rimMesh.renderOrder = 10;
 
-  group.add(insetMesh);
-  group.add(edgeMesh);
+  group.add(rimMesh);
+  group.add(floorMesh);
   return group;
 }
 
@@ -1028,6 +1070,31 @@ document.querySelector("#textSize").addEventListener("input", event => {
       `Dimensione modello testo: ${state.textSize} mm`;
     textApplyStatus.className = "text-apply-status success";
   }
+});
+
+
+const alignmentButtons = document.querySelectorAll(".alignment-button");
+alignmentButtons.forEach(button => {
+  button.addEventListener("click", () => {
+    state.textAlign = button.dataset.align;
+
+    alignmentButtons.forEach(item => {
+      const active = item === button;
+      item.classList.toggle("active", active);
+      item.setAttribute("aria-pressed", String(active));
+    });
+
+    if (state.appliedText) {
+      rebuildTile();
+      const label = {
+        left: "sinistra",
+        center: "centro",
+        right: "destra"
+      }[state.textAlign];
+      textApplyStatus.textContent = `Allineamento: ${label}.`;
+      textApplyStatus.className = "text-apply-status success";
+    }
+  });
 });
 
 document.querySelector("#textNegative").addEventListener("change", event => {
@@ -1320,6 +1387,7 @@ orderForm.addEventListener("submit", async event => {
       text_font: state.serviceType === "text" ? state.textFont : null,
       text_size_mm: state.serviceType === "text" ? state.textSize : null,
       text_negative: state.serviceType === "text" ? state.textNegative : null,
+      text_alignment: state.serviceType === "text" ? state.textAlign : null,
       text_depth_mm: state.serviceType === "text" ? state.textDepth : null,
       frame_style: state.frameStyle,
       estimated_price_per_sqm_eur: Number(

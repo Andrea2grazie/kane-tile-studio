@@ -134,8 +134,9 @@
         <div id="textServicePanel" class="customization-panel" role="tabpanel">
           <div class="control-group">
             <label for="tileText">Testo</label>
-            <input id="tileText" class="text-input" type="text"
-                   maxlength="40" placeholder="Scrivi qui..." />
+            <textarea id="tileText" class="text-input text-area"
+                      maxlength="120" rows="3"
+                      placeholder="Scrivi qui...&#10;Puoi andare a capo"></textarea>
             <button id="applyTextButton" class="primary apply-text-button" type="button">
               Applica scritta
             </button>
@@ -183,6 +184,16 @@
               <input id="textSize" type="range" min="6" max="32" value="14" step="1" />
             </div>
           </div>
+
+          <div class="control-group text-alignment-group">
+            <label>Allineamento testo</label>
+            <div class="alignment-buttons" role="group" aria-label="Allineamento testo">
+              <button class="alignment-button" type="button" data-align="left" aria-pressed="false">Sinistra</button>
+              <button class="alignment-button active" type="button" data-align="center" aria-pressed="true">Centro</button>
+              <button class="alignment-button" type="button" data-align="right" aria-pressed="false">Destra</button>
+            </div>
+          </div>
+
           <label class="toggle-row text-negative-toggle">
             <span>
               <strong>Scritta incisa</strong>

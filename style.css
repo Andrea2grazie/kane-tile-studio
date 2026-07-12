@@ -842,3 +842,38 @@ select {
   font-size: 21px;
   font-weight: 500;
 }
+
+
+.text-area {
+  min-height: 92px;
+  resize: vertical;
+  line-height: 1.35;
+  font-family: inherit;
+}
+
+.text-alignment-group {
+  margin-top: 4px;
+}
+
+.alignment-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+  margin-top: 9px;
+}
+
+.alignment-button {
+  padding: 10px 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: white;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.alignment-button.active {
+  border-color: var(--accent);
+  background: rgba(23,63,56,.08);
+  color: var(--accent);
+  font-weight: 700;
+}
