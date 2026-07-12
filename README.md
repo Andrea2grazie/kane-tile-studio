@@ -207,3 +207,14 @@ alcuni secondi. La risoluzione viene automaticamente bilanciata per non bloccare
 - scritta posizionata più chiaramente sopra la superficie;
 - dimensione e profondità aggiornate numericamente in tempo reale;
 - aggiornamento diretto anche per rilievo immagine e contrasto.
+
+
+## Aggiornamento v18 — font locali
+
+- rimossi FontLoader e TextGeometry;
+- nessun file font esterno da scaricare;
+- font generati tramite Canvas usando quelli di sistema;
+- compatibilità maggiore con Safari e GitHub Pages;
+- scritta applicata immediatamente;
+- alpha map e bump map dedicate per rendere leggibili le lettere;
+- nessun errore di connessione durante `Applica scritta`.

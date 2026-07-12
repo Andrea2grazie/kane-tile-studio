@@ -1,8 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
-import { FontLoader } from "three/addons/loaders/FontLoader.js";
-import { TextGeometry } from "three/addons/geometries/TextGeometry.js";
 
 
 const GLAZES = {
@@ -120,24 +118,6 @@ scene.add(tileGroup);
 
 
 
-const fontLoader = new FontLoader();
-const fontCache = new Map();
-
-const FONT_URLS = {
-  helvetiker: "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/fonts/helvetiker_regular.typeface.json",
-  optimer: "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/fonts/optimer_regular.typeface.json",
-  gentilis: "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/fonts/gentilis_regular.typeface.json",
-  droid_serif: "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/fonts/droid/droid_serif_regular.typeface.json"
-};
-
-async function ensureFontLoaded(fontKey) {
-  if (fontCache.has(fontKey)) return fontCache.get(fontKey);
-
-  const url = FONT_URLS[fontKey] || FONT_URLS.helvetiker;
-  const font = await fontLoader.loadAsync(url);
-  fontCache.set(fontKey, font);
-  return font;
-}
 
 function createCeramicNormalTexture(size = 256) {
   const canvas = document.createElement("canvas");
@@ -562,94 +542,108 @@ function createTextMaskTexture(text, fontKey) {
   return texture;
 }
 
-function buildRealTextGeometry(w, h, baseMaterial, baseTop) {
-  const text = state.appliedText.trim();
-  const font = fontCache.get(state.textFont);
+const LOCAL_FONT_STACKS = {
+  helvetiker: '"Helvetica Neue", Arial, sans-serif',
+  optimer: '"Avenir Next", "Trebuchet MS", sans-serif',
+  gentilis: 'Georgia, "Times New Roman", serif',
+  droid_serif: '"Palatino Linotype", Palatino, Georgia, serif'
+};
 
-  if (!text || !font) return null;
+function createLocalTextTexture(text, fontKey) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 2048;
+  canvas.height = 640;
 
-  const requestedSize = state.textSize / 100;
-  const requestedDepth = Math.max(0.008, state.textDepth / 85);
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  const geometry = new TextGeometry(text, {
-    font,
-    size: requestedSize,
-    depth: requestedDepth,
-    curveSegments: 14,
-    bevelEnabled: true,
-    bevelThickness: Math.min(0.003, requestedDepth * 0.20),
-    bevelSize: Math.min(0.0024, requestedDepth * 0.16),
-    bevelOffset: 0,
-    bevelSegments: 3
-  });
+  const fontStack =
+    LOCAL_FONT_STACKS[fontKey] || LOCAL_FONT_STACKS.helvetiker;
 
-  geometry.computeBoundingBox();
+  let fontSize = 360;
+  const maxWidth = canvas.width * 0.88;
 
-  const box = geometry.boundingBox;
-  const geometryWidth = box.max.x - box.min.x;
-  const geometryHeight = box.max.y - box.min.y;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#ffffff";
 
-  const maxWidth = w * 0.68;
-  const maxHeight = h * 0.28;
-
-  const fitScale = Math.min(
-    1,
-    maxWidth / Math.max(geometryWidth, 0.0001),
-    maxHeight / Math.max(geometryHeight, 0.0001)
-  );
-
-  geometry.translate(
-    -(box.min.x + geometryWidth / 2),
-    -(box.min.y + geometryHeight / 2),
-    0
-  );
-
-  // Materiale dedicato alla scritta.
-  // Le mappe procedurali della mattonella non sono applicate alle lettere,
-  // perché su TextGeometry possono produrre facce bianche o artefatti.
-  const material = new THREE.MeshPhysicalMaterial({
-    color: baseMaterial.color.clone(),
-    roughness: Math.max(0.18, baseMaterial.roughness),
-    metalness: 0,
-    clearcoat: baseMaterial.clearcoat,
-    clearcoatRoughness: baseMaterial.clearcoatRoughness,
-    sheen: baseMaterial.sheen,
-    sheenColor: baseMaterial.color.clone().lerp(
-      new THREE.Color(0xffffff),
-      0.10
-    ),
-    sheenRoughness: 0.68,
-    reflectivity: 0.34,
-    ior: 1.50,
-    envMapIntensity: 0.34,
-    side: THREE.DoubleSide
-  });
-
-  if (state.textNegative) {
-    material.color.multiplyScalar(0.72);
-    material.roughness = Math.min(1, material.roughness + 0.16);
-    material.clearcoat = Math.max(0.08, material.clearcoat * 0.40);
+  while (fontSize > 54) {
+    ctx.font = `700 ${fontSize}px ${fontStack}`;
+    if (ctx.measureText(text).width <= maxWidth) break;
+    fontSize -= 8;
   }
 
-  geometry.computeVertexNormals();
-  geometry.normalizeNormals();
+  ctx.font = `700 ${fontSize}px ${fontStack}`;
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.NoColorSpace;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = true;
+  texture.anisotropy = Math.min(
+    16,
+    renderer.capabilities.getMaxAnisotropy()
+  );
+  texture.needsUpdate = true;
+
+  return texture;
+}
+
+function buildLocalTextSurface(w, h, baseMaterial, baseTop) {
+  const text = state.appliedText.trim();
+  if (!text) return null;
+
+  const texture = createLocalTextTexture(text, state.textFont);
+  const geometry = new THREE.PlaneGeometry(
+    w * 0.70,
+    h * 0.27,
+    24,
+    10
+  );
+
+  const textColor = baseMaterial.color.clone();
+
+  if (state.textNegative) {
+    textColor.multiplyScalar(0.58);
+  } else {
+    textColor.offsetHSL(0, 0, 0.08);
+  }
+
+  const material = new THREE.MeshPhysicalMaterial({
+    color: textColor,
+    alphaMap: texture,
+    bumpMap: texture,
+    bumpScale:
+      (state.textNegative ? -1 : 1) * (state.textDepth / 90),
+    transparent: true,
+    alphaTest: 0.10,
+    depthWrite: true,
+    roughness: state.textNegative
+      ? Math.min(1, baseMaterial.roughness + 0.18)
+      : Math.max(0.16, baseMaterial.roughness - 0.06),
+    metalness: 0,
+    clearcoat: state.textNegative ? 0.10 : baseMaterial.clearcoat,
+    clearcoatRoughness: state.textNegative
+      ? 0.55
+      : baseMaterial.clearcoatRoughness,
+    envMapIntensity: 0.38,
+    side: THREE.DoubleSide,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2
+  });
 
   const mesh = new THREE.Mesh(geometry, material);
-  mesh.scale.setScalar(fitScale);
-
-  const depthAfterScale = requestedDepth * fitScale;
-
-  const textSurfaceZ = baseTop + 0.008;
-
   mesh.position.set(
     0,
     0,
-    state.textNegative
-      ? baseTop - depthAfterScale * 0.42
-      : textSurfaceZ
+    baseTop + (state.textNegative ? 0.0045 : 0.009)
   );
-
-  mesh.renderOrder = 5;
+  mesh.renderOrder = 10;
+  mesh.userData.disposableTexture = texture;
 
   return mesh;
 }
@@ -712,7 +706,7 @@ function rebuildTile() {
   }
 
   if (state.serviceType === "text") {
-    const textMesh = buildRealTextGeometry(w, h, reliefMat, baseTop);
+    const textMesh = buildLocalTextSurface(w, h, reliefMat, baseTop);
     if (textMesh) tileGroup.add(textMesh);
   }
 
@@ -815,7 +809,7 @@ document.querySelector("#tileText").addEventListener("input", event => {
   textApplyStatus.className = "text-apply-status";
 });
 
-applyTextButton.addEventListener("click", async () => {
+applyTextButton.addEventListener("click", () => {
   const value = state.tileText.trim();
 
   if (!value) {
@@ -826,47 +820,21 @@ applyTextButton.addEventListener("click", async () => {
     return;
   }
 
-  applyTextButton.disabled = true;
-  applyTextButton.textContent = "Applicazione in corso…";
-  textApplyStatus.textContent = "Caricamento del font e creazione della geometria 3D…";
-  textApplyStatus.className = "text-apply-status";
+  state.appliedText = value;
+  rebuildTile();
 
-  try {
-    await ensureFontLoaded(state.textFont);
-
-    state.appliedText = value;
-    rebuildTile();
-
-    textApplyStatus.textContent = "Scritta 3D applicata centralmente.";
-    textApplyStatus.className = "text-apply-status success";
-  } catch (error) {
-    console.error("Errore nella creazione della scritta:", error);
-    textApplyStatus.textContent =
-      "Non è stato possibile caricare il font. Controlla la connessione e riprova.";
-    textApplyStatus.className = "text-apply-status error";
-  } finally {
-    applyTextButton.disabled = false;
-    applyTextButton.textContent = "Applica scritta";
-  }
+  textApplyStatus.textContent =
+    "Scritta applicata centralmente.";
+  textApplyStatus.className = "text-apply-status success";
 });
 
-document.querySelector("#textFont").addEventListener("change", async event => {
+document.querySelector("#textFont").addEventListener("change", event => {
   state.textFont = event.target.value;
 
-  if (!state.appliedText) return;
-
-  textApplyStatus.textContent = "Aggiornamento del font…";
-  textApplyStatus.className = "text-apply-status";
-
-  try {
-    await ensureFontLoaded(state.textFont);
+  if (state.appliedText) {
     rebuildTile();
     textApplyStatus.textContent = "Font aggiornato.";
     textApplyStatus.className = "text-apply-status success";
-  } catch (error) {
-    console.error(error);
-    textApplyStatus.textContent = "Errore durante il caricamento del font.";
-    textApplyStatus.className = "text-apply-status error";
   }
 });
 
@@ -1280,9 +1248,6 @@ resize();
 updateServiceVisibility();
 rebuildTile();
 
-ensureFontLoaded(state.textFont).catch(error => {
-  console.warn("Precaricamento font non riuscito:", error);
-});
 
 requestAnimationFrame(() => {
   fitCameraToTile();
