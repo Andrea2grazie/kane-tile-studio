@@ -158,3 +158,13 @@ alcuni secondi. La risoluzione viene automaticamente bilanciata per non bloccare
 - 13 cornici;
 - smalto marrone lucido, clearcoat e cavillature;
 - rilievi fino a 2048 px e mesh fino a 820 segmenti.
+
+
+## Aggiornamento v13
+
+- corretto il problema della mattonella 3D non visibile;
+- inquadratura semplificata e più robusta;
+- sfondo Three.js trasparente;
+- rimosso il controllo dello spessore;
+- spessore fisso impostato a 8 mm;
+- salvataggio ordine aggiornato con spessore fisso.

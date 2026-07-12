@@ -64,6 +64,7 @@ const GLAZES = {
 
 const viewer = document.querySelector("#viewer");
 const scene = new THREE.Scene();
+scene.background = null;
 
 const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 100);
 camera.position.set(0, 0.1, 3.05);
@@ -73,6 +74,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.5));
 renderer.shadowMap.enabled = false;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.setClearColor(0x000000, 0);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.82;
 
@@ -108,8 +110,8 @@ scene.add(fill);
 
 
 const tileGroup = new THREE.Group();
-tileGroup.rotation.x = -0.12;
-tileGroup.rotation.y = 0.24;
+tileGroup.rotation.x = -0.10;
+tileGroup.rotation.y = 0.22;
 scene.add(tileGroup);
 
 
@@ -182,7 +184,6 @@ const ceramicCrackleTexture = createCrackleTexture();
 const state = {
   width: 100,
   height: 100,
-  relief: 8,
   glaze: "marrone_lucido",
   textureEnabled: false,
   imageRelief: 3,
@@ -520,7 +521,7 @@ function rebuildTile() {
 
   const w = state.width / 100;
   const h = state.height / 100;
-  const thickness = state.relief / 100;
+  const thickness = 0.08;
 
   const glaze = GLAZES[state.glaze] || GLAZES.sabbia;
   const glazeColor = new THREE.Color(glaze.color);
@@ -587,7 +588,6 @@ function estimatePricePerSquareMeter() {
 function updateUi() {
   widthOut.textContent = `${state.width} mm`;
   heightOut.textContent = `${state.height} mm`;
-  reliefOut.textContent = `${state.relief.toFixed(1)} mm`;
   imageReliefOut.textContent = `${state.imageRelief.toFixed(1)} mm`;
   imageContrastOut.textContent = `${state.imageContrast}%`;
   textSizeOut.textContent = `${state.textSize} mm`;
@@ -615,7 +615,6 @@ function bindRange(id, key, numeric = true) {
 
 bindRange("width", "width");
 bindRange("height", "height");
-bindRange("relief", "relief");
 bindRange("imageRelief", "imageRelief");
 bindRange("imageContrast", "imageContrast");
 
@@ -679,7 +678,7 @@ document.querySelector("#glaze").addEventListener("change", event => {
 });
 
 document.querySelector("#resetView").addEventListener("click", () => {
-  tileGroup.rotation.set(-0.12, 0.24, 0);
+  tileGroup.rotation.set(-0.10, 0.22, 0);
   fitCameraToTile();
 });
 
@@ -920,7 +919,7 @@ orderForm.addEventListener("submit", async event => {
     const configuration = {
       width_mm: state.width,
       height_mm: state.height,
-      tile_thickness_mm: state.relief,
+      tile_thickness_mm: 8,
       image_relief_mm: state.imageRelief,
       image_contrast_percent: state.imageContrast,
       dark_areas_raised: state.invertRelief,
@@ -988,6 +987,8 @@ orderForm.addEventListener("submit", async event => {
 
 
 function fitCameraToTile() {
+  if (!tileGroup || tileGroup.children.length === 0) return;
+
   scene.updateMatrixWorld(true);
 
   const box = new THREE.Box3().setFromObject(tileGroup);
@@ -998,37 +999,37 @@ function fitCameraToTile() {
   box.getSize(size);
   box.getCenter(center);
 
-  const verticalFov = THREE.MathUtils.degToRad(camera.fov);
-  const horizontalFov = 2 * Math.atan(
-    Math.tan(verticalFov / 2) * camera.aspect
-  );
-
-  const distanceForHeight =
-    size.y / (2 * Math.tan(verticalFov / 2));
-  const distanceForWidth =
-    size.x / (2 * Math.tan(horizontalFov / 2));
-
-  const distance = Math.max(distanceForHeight, distanceForWidth) * 1.28;
+  const maxDim = Math.max(size.x, size.y, size.z, 0.001);
+  const fov = THREE.MathUtils.degToRad(camera.fov);
+  const distance = (maxDim / (2 * Math.tan(fov / 2))) * 1.55;
 
   controls.target.copy(center);
-  camera.position.set(center.x, center.y + 0.03, center.z + distance);
+  camera.position.set(
+    center.x + distance * 0.14,
+    center.y + distance * 0.10,
+    center.z + distance
+  );
+
   camera.near = Math.max(0.01, distance / 100);
-  camera.far = distance * 100;
+  camera.far = distance * 50;
   camera.updateProjectionMatrix();
   controls.update();
 }
 
 function resize() {
-  const w = viewer.clientWidth;
-  const h = viewer.clientHeight;
+  const w = Math.max(1, viewer.clientWidth);
+  const h = Math.max(1, viewer.clientHeight);
+
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  fitCameraToTile();
 }
 window.addEventListener("resize", resize);
 if ("ResizeObserver" in window) {
-  const viewerResizeObserver = new ResizeObserver(resize);
+  const viewerResizeObserver = new ResizeObserver(() => {
+    resize();
+    fitCameraToTile();
+  });
   viewerResizeObserver.observe(viewer);
 }
 
@@ -1041,4 +1042,7 @@ function animate() {
 resize();
 updateServiceVisibility();
 rebuildTile();
-animate();
+requestAnimationFrame(() => {
+  fitCameraToTile();
+  animate();
+});
