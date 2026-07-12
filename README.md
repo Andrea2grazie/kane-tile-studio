@@ -151,3 +151,10 @@ alcuni secondi. La risoluzione viene automaticamente bilanciata per non bloccare
 - profondità della scritta regolabile;
 - le sezioni non pertinenti vengono nascoste automaticamente;
 - l’ordine Supabase salva il tipo di servizio scelto.
+
+## Aggiornamento v12
+- schede ordinate Scritta / Immagine;
+- testo corretto con displacement reale;
+- 13 cornici;
+- smalto marrone lucido, clearcoat e cavillature;
+- rilievi fino a 2048 px e mesh fino a 820 segmenti.

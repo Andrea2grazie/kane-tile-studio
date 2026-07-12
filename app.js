@@ -36,6 +36,14 @@ const GLAZES = {
     clearcoatRoughness: 0.38,
     sheen: 0.13
   },
+  marrone_lucido: {
+    label: "Marrone lucido",
+    color: "#7f3f21",
+    roughness: 0.16,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.07,
+    sheen: 0.18
+  },
   sabbia: {
     label: "Sabbia",
     color: "#b99463",
@@ -149,11 +157,33 @@ function createCeramicNormalTexture(size = 256) {
 
 const ceramicNormalTexture = createCeramicNormalTexture();
 
+function createCrackleTexture(size = 512) {
+  const canvas = document.createElement("canvas");
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#808080"; ctx.fillRect(0,0,size,size);
+  ctx.strokeStyle = "rgba(105,105,105,.28)"; ctx.lineWidth = 0.55;
+  for (let i=0;i<280;i++){
+    let x=Math.random()*size, y=Math.random()*size;
+    ctx.beginPath(); ctx.moveTo(x,y);
+    const steps=3+Math.floor(Math.random()*5);
+    for(let s=0;s<steps;s++){x+=(Math.random()-.5)*28;y+=(Math.random()-.5)*28;ctx.lineTo(x,y)}
+    ctx.stroke();
+  }
+  const t=new THREE.CanvasTexture(canvas);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(2.5,2.5);
+  t.colorSpace=THREE.NoColorSpace;
+  t.anisotropy=Math.min(16,renderer.capabilities.getMaxAnisotropy());
+  return t;
+}
+const ceramicCrackleTexture = createCrackleTexture();
+
+
 const state = {
   width: 100,
   height: 100,
   relief: 8,
-  glaze: "sabbia",
+  glaze: "marrone_lucido",
   textureEnabled: false,
   imageRelief: 3,
   imageContrast: 100,
@@ -167,7 +197,8 @@ const state = {
   textFont: "helvetiker",
   textSize: 14,
   textNegative: false,
-  textDepth: 2
+  textDepth: 2,
+  frameStyle: "classic"
 };
 
 function disposeObject(obj) {
@@ -215,26 +246,32 @@ function extrudedShape(shape, depth, material, z) {
   return mesh;
 }
 
-function buildStandardFrame(w, h, material, baseTop) {
-  const frameDepth = 0.018;
-  const outer = roundedRectShape(
-    w * 0.90,
-    h * 0.90,
-    Math.min(w, h) * 0.035
-  );
-  const inner = roundedRectShape(
-    w * 0.82,
-    h * 0.82,
-    Math.min(w, h) * 0.026
-  );
+function makeFrameRing(w,h,inset,widthFactor,depth,radius,material,zOffset=0){
+  const outerW=w*(1-inset), outerH=h*(1-inset);
+  const outer=roundedRectShape(outerW,outerH,radius);
+  const inner=roundedRectShape(Math.max(.05,outerW-w*widthFactor),Math.max(.05,outerH-h*widthFactor),Math.max(.005,radius*.74));
   outer.holes.push(inner);
-
-  return extrudedShape(
-    outer,
-    frameDepth,
-    material,
-    baseTop + frameDepth / 2
-  );
+  return extrudedShape(outer,depth,material,baseTop+depth/2+zOffset);
+}
+function buildStandardFrame(w,h,material,baseTop){
+  const g=new THREE.Group(), m=Math.min(w,h);
+  const a=(...x)=>g.add(makeFrameRing(...x));
+  switch(state.frameStyle){
+    case "none": return g;
+    case "minimal": a(w,h,.10,.025,.010,m*.028,material); break;
+    case "classic": a(w,h,.07,.040,.020,m*.040,material); a(w,h,.15,.020,.012,m*.026,material,.002); break;
+    case "double": a(w,h,.08,.024,.014,m*.034,material); a(w,h,.15,.024,.014,m*.025,material); break;
+    case "triple": a(w,h,.06,.020,.012,m*.036,material); a(w,h,.12,.018,.012,m*.030,material); a(w,h,.18,.016,.010,m*.024,material); break;
+    case "beaded": a(w,h,.07,.030,.018,m*.045,material); a(w,h,.135,.014,.026,m*.024,material,.002); break;
+    case "soft": a(w,h,.07,.055,.017,m*.060,material); break;
+    case "architectural": a(w,h,.05,.050,.024,m*.020,material); a(w,h,.16,.018,.010,m*.014,material); break;
+    case "deco": a(w,h,.05,.022,.016,m*.018,material); a(w,h,.10,.035,.020,m*.018,material); a(w,h,.18,.014,.010,m*.012,material); break;
+    case "rustic": a(w,h,.045,.060,.022,m*.055,material); g.rotation.z=.002; break;
+    case "thinInset": a(w,h,.14,.012,.006,m*.018,material); break;
+    case "wideInset": a(w,h,.13,.040,.010,m*.026,material); break;
+    case "museum": a(w,h,.045,.070,.030,m*.050,material); a(w,h,.18,.022,.016,m*.022,material,.004); break;
+  }
+  return g;
 }
 
 
@@ -318,8 +355,8 @@ function gaussianBlurGray(source, width, height, radius = 2) {
 
 function estimateMeshSegments(reliefWidth, reliefHeight) {
   const isMobile = window.matchMedia("(max-width: 900px)").matches;
-  const maxSegments = isMobile ? 420 : 680;
-  const minSegments = isMobile ? 240 : 320;
+  const maxSegments = isMobile ? 520 : 820;
+  const minSegments = isMobile ? 300 : 420;
 
   const imageResolution = Math.max(state.heightWidth, state.heightHeight);
   const desired = Math.round(imageResolution * (isMobile ? 0.52 : 0.68));
@@ -452,21 +489,22 @@ function buildRealtimeTextSurface(w, h, baseMaterial, baseTop) {
   const text = state.tileText.trim();
   if (!text) return null;
 
-  const innerW = w * 0.72;
+  const innerW = w * 0.70;
   const innerH = h * 0.24;
-  const geometry = new THREE.PlaneGeometry(innerW, innerH, 1, 1);
-
+  const geometry = new THREE.PlaneGeometry(innerW, innerH, 360, 120);
   const maskTexture = createTextMaskTexture(text, state.textFont);
   const material = baseMaterial.clone();
+
+  material.displacementMap = maskTexture;
+  material.displacementScale = (state.textNegative ? -1 : 1) * (state.textDepth / 100);
+  material.displacementBias = state.textNegative ? (state.textDepth / 100) : 0;
   material.bumpMap = maskTexture;
-  material.bumpScale = (state.textNegative ? -1 : 1) * (state.textDepth / 100);
-  material.roughness = Math.min(1, material.roughness + 0.04);
+  material.bumpScale = (state.textNegative ? -1 : 1) * (state.textDepth / 180);
   material.needsUpdate = true;
 
   const mesh = new THREE.Mesh(geometry, material);
   mesh.position.set(0, 0, baseTop + 0.004);
   mesh.userData.disposableTexture = maskTexture;
-
   return mesh;
 }
 
@@ -499,7 +537,10 @@ function rebuildTile() {
     reflectivity: 0.46,
     ior: 1.52,
     normalMap: ceramicNormalTexture,
-    normalScale: new THREE.Vector2(0.055, 0.055),
+    normalScale: new THREE.Vector2(0.045, 0.045),
+    roughnessMap: ceramicCrackleTexture,
+    bumpMap: ceramicCrackleTexture,
+    bumpScale: 0.0025,
     envMapIntensity: glaze.roughness < 0.3 ? 0.78 : 0.42,
     side: THREE.DoubleSide
   });
@@ -586,29 +627,22 @@ document.querySelector("#invertRelief").addEventListener("change", e => {
 
 
 
-const textSection = document.querySelector(".text-section");
-const reliefSection = document.querySelector(".relief-section");
-const serviceCards = document.querySelectorAll(".service-card");
+const textServiceTab = document.querySelector("#textServiceTab");
+const imageServiceTab = document.querySelector("#imageServiceTab");
+const textServicePanel = document.querySelector("#textServicePanel");
+const imageServicePanel = document.querySelector("#imageServicePanel");
 
 function updateServiceVisibility() {
   const isText = state.serviceType === "text";
-  textSection.hidden = !isText;
-  reliefSection.hidden = isText;
-
-  serviceCards.forEach(card => {
-    const radio = card.querySelector('input[name="serviceType"]');
-    card.classList.toggle("active", radio.value === state.serviceType);
-    radio.checked = radio.value === state.serviceType;
-  });
+  textServiceTab.classList.toggle("active", isText);
+  imageServiceTab.classList.toggle("active", !isText);
+  textServiceTab.setAttribute("aria-selected", String(isText));
+  imageServiceTab.setAttribute("aria-selected", String(!isText));
+  textServicePanel.hidden = !isText;
+  imageServicePanel.hidden = isText;
 }
-
-document.querySelectorAll('input[name="serviceType"]').forEach(radio => {
-  radio.addEventListener("change", event => {
-    state.serviceType = event.target.value;
-    updateServiceVisibility();
-    rebuildTile();
-  });
-});
+textServiceTab.addEventListener("click",()=>{state.serviceType="text";updateServiceVisibility();rebuildTile()});
+imageServiceTab.addEventListener("click",()=>{state.serviceType="image";updateServiceVisibility();rebuildTile()});
 
 document.querySelector("#tileText").addEventListener("input", event => {
   state.tileText = event.target.value;
@@ -635,6 +669,10 @@ document.querySelector("#textDepth").addEventListener("input", event => {
   rebuildTile();
 });
 
+document.querySelector("#frameStyle").addEventListener("change", event => {
+  state.frameStyle = event.target.value;
+  rebuildTile();
+});
 document.querySelector("#glaze").addEventListener("change", event => {
   state.glaze = event.target.value;
   rebuildTile();
@@ -680,7 +718,7 @@ textureFile.addEventListener("change", event => {
       // Mantiene molta più informazione rispetto alla precedente
       // elaborazione a 256 px.
       const isMobileDevice = window.matchMedia("(max-width: 900px)").matches;
-      const maxSize = isMobileDevice ? 1024 : 1536;
+      const maxSize = isMobileDevice ? 1280 : 2048;
       const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1);
       const canvas = document.createElement("canvas");
       canvas.width = Math.max(2, Math.round(img.width * ratio));
@@ -895,7 +933,7 @@ orderForm.addEventListener("submit", async event => {
       text_size_mm: state.serviceType === "text" ? state.textSize : null,
       text_negative: state.serviceType === "text" ? state.textNegative : null,
       text_depth_mm: state.serviceType === "text" ? state.textDepth : null,
-      standard_frame: true,
+      frame_style: state.frameStyle,
       estimated_price_per_sqm_eur: Number(
         estimatePricePerSquareMeter().toFixed(2)
       ),
