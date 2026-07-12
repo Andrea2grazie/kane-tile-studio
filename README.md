@@ -281,3 +281,11 @@ alcuni secondi. La risoluzione viene automaticamente bilanciata per non bloccare
 - la camera non si resetta più quando cambi parametri;
 - l’inquadratura viene calcolata solo all’avvio e quando premi “reset view”;
 - il resize del pannello non forza più il riframing automatico.
+
+
+## Aggiornamento v24
+
+- eliminato il riframing automatico dentro `rebuildTile()`;
+- la camera non torna più al punto iniziale quando modifichi i parametri;
+- il reset vista avviene solo col pulsante dedicato;
+- intestazione aggiornata a `Kanè Tile Studio v24`.

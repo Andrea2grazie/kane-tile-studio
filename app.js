@@ -93,7 +93,7 @@ pmremGenerator.dispose();
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 let hasInitialCameraFrame = false;
-let hasUserAdjustedCamera = false;
+let hasUserAdjustedCamera = false; // mantenuta solo per compatibilità futura
 controls.target.set(0, 0, 0);
 controls.minDistance = 0.55;
 controls.maxDistance = 12;
@@ -970,7 +970,6 @@ function rebuildTile() {
   tileGroup.scale.setScalar(1.0 / maxSide);
 
   updateUi();
-  fitCameraToTile();
   flashViewer();
 }
 
