@@ -168,3 +168,13 @@ alcuni secondi. La risoluzione viene automaticamente bilanciata per non bloccare
 - rimosso il controllo dello spessore;
 - spessore fisso impostato a 8 mm;
 - salvataggio ordine aggiornato con spessore fisso.
+
+
+## Aggiornamento v14 — correzione definitiva scena 3D
+
+- corretto un errore runtime nella funzione della cornice;
+- `baseTop` viene ora passato correttamente alla geometria;
+- la base della mattonella viene renderizzata anche se una cornice fallisce;
+- inquadratura con margine maggiore;
+- distanza minima della fotocamera per evitare zoom eccessivo;
+- mattonella centrata e visibile su iPhone e desktop.

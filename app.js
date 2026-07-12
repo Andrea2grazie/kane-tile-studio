@@ -247,16 +247,69 @@ function extrudedShape(shape, depth, material, z) {
   return mesh;
 }
 
-function makeFrameRing(w,h,inset,widthFactor,depth,radius,material,zOffset=0){
-  const outerW=w*(1-inset), outerH=h*(1-inset);
-  const outer=roundedRectShape(outerW,outerH,radius);
-  const inner=roundedRectShape(Math.max(.05,outerW-w*widthFactor),Math.max(.05,outerH-h*widthFactor),Math.max(.005,radius*.74));
+function makeFrameRing(
+  w,
+  h,
+  inset,
+  widthFactor,
+  depth,
+  radius,
+  material,
+  baseTop,
+  zOffset = 0
+) {
+  const outerW = w * (1 - inset);
+  const outerH = h * (1 - inset);
+
+  const outer = roundedRectShape(outerW, outerH, radius);
+  const inner = roundedRectShape(
+    Math.max(0.05, outerW - w * widthFactor),
+    Math.max(0.05, outerH - h * widthFactor),
+    Math.max(0.005, radius * 0.74)
+  );
+
   outer.holes.push(inner);
-  return extrudedShape(outer,depth,material,baseTop+depth/2+zOffset);
+
+  return extrudedShape(
+    outer,
+    depth,
+    material,
+    baseTop + depth / 2 + zOffset
+  );
 }
-function buildStandardFrame(w,h,material,baseTop){
-  const g=new THREE.Group(), m=Math.min(w,h);
-  const a=(...x)=>g.add(makeFrameRing(...x));
+
+function buildStandardFrame(w, h, material, baseTop) {
+  const group = new THREE.Group();
+  const minSide = Math.min(w, h);
+
+  const addFrame = (
+    frameW,
+    frameH,
+    inset,
+    widthFactor,
+    depth,
+    radius,
+    frameMaterial,
+    zOffset = 0
+  ) => {
+    group.add(
+      makeFrameRing(
+        frameW,
+        frameH,
+        inset,
+        widthFactor,
+        depth,
+        radius,
+        frameMaterial,
+        baseTop,
+        zOffset
+      )
+    );
+  };
+
+  const g = group;
+  const m = minSide;
+  const a = addFrame;
   switch(state.frameStyle){
     case "none": return g;
     case "minimal": a(w,h,.10,.025,.010,m*.028,material); break;
@@ -519,6 +572,9 @@ function flashViewer() {
 function rebuildTile() {
   clearGroup(tileGroup);
 
+  // La base viene sempre costruita per prima: anche se una personalizzazione
+  // genera un errore, la mattonella resta visibile.
+
   const w = state.width / 100;
   const h = state.height / 100;
   const thickness = 0.08;
@@ -553,7 +609,11 @@ function rebuildTile() {
   tileGroup.add(base);
 
   const baseTop = thickness / 2;
-  tileGroup.add(buildStandardFrame(w, h, reliefMat, baseTop));
+  try {
+    tileGroup.add(buildStandardFrame(w, h, reliefMat, baseTop));
+  } catch (frameError) {
+    console.error("Errore nella cornice:", frameError);
+  }
 
   if (state.serviceType === "image" && state.textureEnabled && state.heightData) {
     tileGroup.add(buildHeightmapRelief(w, h, reliefMat, baseTop));
@@ -996,22 +1056,35 @@ function fitCameraToTile() {
 
   const size = new THREE.Vector3();
   const center = new THREE.Vector3();
+
   box.getSize(size);
   box.getCenter(center);
 
-  const maxDim = Math.max(size.x, size.y, size.z, 0.001);
-  const fov = THREE.MathUtils.degToRad(camera.fov);
-  const distance = (maxDim / (2 * Math.tan(fov / 2))) * 1.55;
+  const verticalFov = THREE.MathUtils.degToRad(camera.fov);
+  const horizontalFov =
+    2 * Math.atan(Math.tan(verticalFov / 2) * camera.aspect);
+
+  const distanceForHeight =
+    size.y / Math.max(0.001, 2 * Math.tan(verticalFov / 2));
+  const distanceForWidth =
+    size.x / Math.max(0.001, 2 * Math.tan(horizontalFov / 2));
+
+  // Margine abbondante: la mattonella occupa circa il 60-70% del viewer.
+  const distance = Math.max(
+    2.35,
+    Math.max(distanceForHeight, distanceForWidth) * 1.58
+  );
 
   controls.target.copy(center);
+
   camera.position.set(
-    center.x + distance * 0.14,
-    center.y + distance * 0.10,
+    center.x + distance * 0.12,
+    center.y + distance * 0.08,
     center.z + distance
   );
 
-  camera.near = Math.max(0.01, distance / 100);
-  camera.far = distance * 50;
+  camera.near = 0.01;
+  camera.far = 100;
   camera.updateProjectionMatrix();
   controls.update();
 }
