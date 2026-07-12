@@ -414,3 +414,67 @@ select {
     font-size: 21px;
   }
 }
+
+
+/* Campi ordine coordinati con la configurazione */
+.order-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 112px;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.order-field {
+  display: block;
+  margin: 0 !important;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #eeebe2;
+}
+
+.order-field > span {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.order-field input[type="email"],
+.order-field input[type="number"] {
+  width: 100%;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.order-field input::placeholder {
+  color: #8a8d87;
+  font-weight: 400;
+}
+
+.order-field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(23,63,56,.11);
+}
+
+.quantity-field input {
+  text-align: center;
+}
+
+@media (max-width: 430px) {
+  .order-fields {
+    grid-template-columns: minmax(0, 1fr) 94px;
+    gap: 9px;
+  }
+
+  .order-field {
+    padding: 11px 12px;
+  }
+}

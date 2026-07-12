@@ -159,14 +159,20 @@
             <strong id="orderSummary">100 × 100 mm</strong>
           </div>
 
-          <label for="customerEmail">Email</label>
-          <input id="customerEmail" name="email" type="email" inputmode="email"
-                 autocomplete="email" maxlength="254" required
-                 placeholder="nome@email.it" />
+          <div class="order-fields">
+            <label class="order-field email-field" for="customerEmail">
+              <span>Email</span>
+              <input id="customerEmail" name="email" type="email" inputmode="email"
+                     autocomplete="email" maxlength="254" required
+                     placeholder="nome@email.it" />
+            </label>
 
-          <label for="orderQuantity">Quantità</label>
-          <input id="orderQuantity" name="quantity" type="number"
-                 min="1" max="10000" step="1" value="1" required />
+            <label class="order-field quantity-field" for="orderQuantity">
+              <span>Quantità</span>
+              <input id="orderQuantity" name="quantity" type="number"
+                     min="1" max="10000" step="1" value="1" required />
+            </label>
+          </div>
 
           <input id="websiteField" class="honeypot" name="website"
                  type="text" tabindex="-1" autocomplete="off" aria-hidden="true" />

@@ -10,8 +10,8 @@ const GLAZES = {
   },
   bianco_lucido: {
     label: "Bianco lucido",
-    color: "#f4f3ed",
-    roughness: 0.14
+    color: "#e8e6df",
+    roughness: 0.18
   },
   verde_oliva_lucido: {
     label: "Verde oliva lucido",
@@ -25,8 +25,8 @@ const GLAZES = {
   },
   sabbia: {
     label: "Sabbia",
-    color: "#d8c4a8",
-    roughness: 0.56
+    color: "#c8ad86",
+    roughness: 0.62
   },
   altro: {
     label: "Altro colore da concordare",
@@ -39,13 +39,15 @@ const viewer = document.querySelector("#viewer");
 const scene = new THREE.Scene();
 
 const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
-camera.position.set(0, 2.4, 3.8);
+camera.position.set(0, 2.15, 3.45);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.78;
 viewer.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -54,25 +56,38 @@ controls.target.set(0, 0, 0);
 controls.minDistance = 2;
 controls.maxDistance = 7;
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0x6f6a60, 2.1));
+scene.add(new THREE.HemisphereLight(0xffffff, 0x746f65, 0.72));
 
-const key = new THREE.DirectionalLight(0xffffff, 4.5);
+const key = new THREE.DirectionalLight(0xffffff, 1.55);
 key.position.set(3.5, 5, 4);
 key.castShadow = true;
 key.shadow.mapSize.set(2048, 2048);
 scene.add(key);
 
-const fill = new THREE.DirectionalLight(0xcfe3ff, 1.8);
+const fill = new THREE.DirectionalLight(0xdce9ff, 0.48);
 fill.position.set(-4, 2, 1);
 scene.add(fill);
 
-const grazing = new THREE.DirectionalLight(0xfff0d5, 3.2);
+const grazing = new THREE.DirectionalLight(0xffe5c6, 0.82);
 grazing.position.set(-3.5, 0.6, 4.5);
 scene.add(grazing);
 
+
+const backplate = new THREE.Mesh(
+  new THREE.PlaneGeometry(7, 7),
+  new THREE.MeshStandardMaterial({
+    color: 0xd8d3c8,
+    roughness: 1,
+    metalness: 0
+  })
+);
+backplate.position.set(0, 0, -0.55);
+backplate.receiveShadow = true;
+scene.add(backplate);
+
 const floor = new THREE.Mesh(
   new THREE.CircleGeometry(2.4, 96),
-  new THREE.ShadowMaterial({ opacity: 0.16 })
+  new THREE.ShadowMaterial({ opacity: 0.28 })
 );
 floor.rotation.x = -Math.PI / 2;
 floor.position.y = -0.34;
@@ -80,7 +95,7 @@ floor.receiveShadow = true;
 scene.add(floor);
 
 const tileGroup = new THREE.Group();
-tileGroup.rotation.x = -0.42;
+tileGroup.rotation.x = -0.34;
 tileGroup.rotation.y = 0.42;
 scene.add(tileGroup);
 
@@ -294,7 +309,7 @@ function rebuildTile() {
   });
 
   const reliefMat = new THREE.MeshStandardMaterial({
-    color: glazeColor.clone().offsetHSL(0, 0, -0.045),
+    color: glazeColor.clone().offsetHSL(0, 0, -0.085),
     roughness: Math.min(1, glaze.roughness + 0.08),
     metalness: 0
   });
@@ -379,7 +394,7 @@ document.querySelector("#glaze").addEventListener("change", event => {
 });
 
 document.querySelector("#resetView").addEventListener("click", () => {
-  camera.position.set(0, 2.4, 3.8);
+  camera.position.set(0, 2.15, 3.45);
   controls.target.set(0, 0, 0);
   tileGroup.rotation.set(-0.42, 0.42, 0);
   controls.update();
@@ -652,8 +667,10 @@ function resize() {
   camera.updateProjectionMatrix();
 }
 window.addEventListener("resize", resize);
-const viewerResizeObserver = new ResizeObserver(resize);
-viewerResizeObserver.observe(viewer);
+if ("ResizeObserver" in window) {
+  const viewerResizeObserver = new ResizeObserver(resize);
+  viewerResizeObserver.observe(viewer);
+}
 
 function animate() {
   requestAnimationFrame(animate);
