@@ -569,7 +569,7 @@ function buildRealTextGeometry(w, h, baseMaterial, baseTop) {
   if (!text || !font) return null;
 
   const requestedSize = state.textSize / 100;
-  const requestedDepth = state.textDepth / 100;
+  const requestedDepth = Math.max(0.008, state.textDepth / 85);
 
   const geometry = new TextGeometry(text, {
     font,
@@ -590,7 +590,7 @@ function buildRealTextGeometry(w, h, baseMaterial, baseTop) {
   const geometryHeight = box.max.y - box.min.y;
 
   const maxWidth = w * 0.68;
-  const maxHeight = h * 0.22;
+  const maxHeight = h * 0.28;
 
   const fitScale = Math.min(
     1,
@@ -604,27 +604,52 @@ function buildRealTextGeometry(w, h, baseMaterial, baseTop) {
     0
   );
 
-  const material = baseMaterial.clone();
+  // Materiale dedicato alla scritta.
+  // Le mappe procedurali della mattonella non sono applicate alle lettere,
+  // perché su TextGeometry possono produrre facce bianche o artefatti.
+  const material = new THREE.MeshPhysicalMaterial({
+    color: baseMaterial.color.clone(),
+    roughness: Math.max(0.18, baseMaterial.roughness),
+    metalness: 0,
+    clearcoat: baseMaterial.clearcoat,
+    clearcoatRoughness: baseMaterial.clearcoatRoughness,
+    sheen: baseMaterial.sheen,
+    sheenColor: baseMaterial.color.clone().lerp(
+      new THREE.Color(0xffffff),
+      0.10
+    ),
+    sheenRoughness: 0.68,
+    reflectivity: 0.34,
+    ior: 1.50,
+    envMapIntensity: 0.34,
+    side: THREE.DoubleSide
+  });
 
-  // Per l'incisione usiamo una tinta leggermente più scura e posizioniamo
-  // le lettere parzialmente dentro la superficie, così l'effetto è leggibile.
   if (state.textNegative) {
-    material.color = material.color.clone().multiplyScalar(0.74);
-    material.roughness = Math.min(1, material.roughness + 0.10);
+    material.color.multiplyScalar(0.72);
+    material.roughness = Math.min(1, material.roughness + 0.16);
+    material.clearcoat = Math.max(0.08, material.clearcoat * 0.40);
   }
+
+  geometry.computeVertexNormals();
+  geometry.normalizeNormals();
 
   const mesh = new THREE.Mesh(geometry, material);
   mesh.scale.setScalar(fitScale);
 
   const depthAfterScale = requestedDepth * fitScale;
 
+  const textSurfaceZ = baseTop + 0.008;
+
   mesh.position.set(
     0,
     0,
     state.textNegative
-      ? baseTop - depthAfterScale * 0.58
-      : baseTop + 0.004
+      ? baseTop - depthAfterScale * 0.42
+      : textSurfaceZ
   );
+
+  mesh.renderOrder = 5;
 
   return mesh;
 }
@@ -742,8 +767,19 @@ function bindRange(id, key, numeric = true) {
 
 bindRange("width", "width");
 bindRange("height", "height");
-bindRange("imageRelief", "imageRelief");
-bindRange("imageContrast", "imageContrast");
+document.querySelector("#imageRelief").addEventListener("input", event => {
+  state.imageRelief = Number(event.target.value);
+  document.querySelector("#imageReliefOut").textContent =
+    `${state.imageRelief.toFixed(1)} mm`;
+  rebuildTile();
+});
+
+document.querySelector("#imageContrast").addEventListener("input", event => {
+  state.imageContrast = Number(event.target.value);
+  document.querySelector("#imageContrastOut").textContent =
+    `${state.imageContrast}%`;
+  rebuildTile();
+});
 
 
 document.querySelector("#invertRelief").addEventListener("change", e => {
@@ -836,6 +872,9 @@ document.querySelector("#textFont").addEventListener("change", async event => {
 
 document.querySelector("#textSize").addEventListener("input", event => {
   state.textSize = Number(event.target.value);
+  document.querySelector("#textSizeOut").textContent =
+    `${state.textSize} mm`;
+
   if (state.appliedText) rebuildTile();
 });
 
@@ -846,6 +885,9 @@ document.querySelector("#textNegative").addEventListener("change", event => {
 
 document.querySelector("#textDepth").addEventListener("input", event => {
   state.textDepth = Number(event.target.value);
+  document.querySelector("#textDepthOut").textContent =
+    `${state.textDepth.toFixed(1)} mm`;
+
   if (state.appliedText) rebuildTile();
 });
 

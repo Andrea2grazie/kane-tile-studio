@@ -196,3 +196,14 @@ alcuni secondi. La risoluzione viene automaticamente bilanciata per non bloccare
 - adattamento automatico alle dimensioni della mattonella;
 - effetto inciso reso tramite posizionamento parziale nella superficie;
 - maggiore compatibilità con Safari e iPhone.
+
+
+## Aggiornamento v17 — materiale scritta corretto
+
+- corrette le facce bianche della scritta;
+- rimosse normal map, roughness map e bump map dalla TextGeometry;
+- materiale ceramico dedicato per le lettere;
+- normali della geometria ricalcolate;
+- scritta posizionata più chiaramente sopra la superficie;
+- dimensione e profondità aggiornate numericamente in tempo reale;
+- aggiornamento diretto anche per rilievo immagine e contrasto.
