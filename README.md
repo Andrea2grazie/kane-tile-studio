@@ -266,3 +266,18 @@ alcuni secondi. La risoluzione viene automaticamente bilanciata per non bloccare
 - allineamento per riga: sinistra, centro o destra;
 - modalità negativa resa sempre visibile con fondo inciso e bordo interno;
 - allineamento salvato nella configurazione dell'ordine.
+
+
+## Aggiornamento v23
+
+- risoluzione del testo aumentata ancora:
+  - raster 4096×2048;
+  - voxelizzazione molto più densa;
+  - bordi meno dentellati;
+- modalità negativa riprogettata con effetto tipo boolean:
+  - fondo cavità;
+  - parete interna;
+  - piano di copertura con foro del testo;
+- la camera non si resetta più quando cambi parametri;
+- l’inquadratura viene calcolata solo all’avvio e quando premi “reset view”;
+- il resize del pannello non forza più il riframing automatico.

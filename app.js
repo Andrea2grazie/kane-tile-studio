@@ -92,9 +92,15 @@ pmremGenerator.dispose();
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
+let hasInitialCameraFrame = false;
+let hasUserAdjustedCamera = false;
 controls.target.set(0, 0, 0);
 controls.minDistance = 0.55;
 controls.maxDistance = 12;
+
+controls.addEventListener("start", () => {
+  hasUserAdjustedCamera = true;
+});
 
 const ambient = new THREE.AmbientLight(0xffffff, 1.7);
 scene.add(ambient);
@@ -507,8 +513,8 @@ const LOCAL_FONT_STACKS = {
 
 function createTextRaster(text, fontKey, requestedSizeMm, alignment) {
   const canvas = document.createElement("canvas");
-  canvas.width = 3072;
-  canvas.height = 1536;
+  canvas.width = 4096;
+  canvas.height = 2048;
 
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -529,12 +535,12 @@ function createTextRaster(text, fontKey, requestedSizeMm, alignment) {
   );
 
   let fontSize = Math.round(
-    THREE.MathUtils.lerp(220, 650, normalizedSize)
+    THREE.MathUtils.lerp(300, 860, normalizedSize)
   );
 
-  const maxWidth = canvas.width * 0.88;
-  const maxHeight = canvas.height * 0.82;
-  const lineSpacingFactor = 1.12;
+  const maxWidth = canvas.width * 0.90;
+  const maxHeight = canvas.height * 0.84;
+  const lineSpacingFactor = 1.10;
 
   function measureCurrentFont() {
     ctx.font = `700 ${fontSize}px ${fontStack}`;
@@ -548,10 +554,10 @@ function createTextRaster(text, fontKey, requestedSizeMm, alignment) {
 
   let metrics = measureCurrentFont();
   while (
-    fontSize > 72 &&
+    fontSize > 96 &&
     (metrics.widest > maxWidth || metrics.blockHeight > maxHeight)
   ) {
-    fontSize -= 8;
+    fontSize -= 10;
     metrics = measureCurrentFont();
   }
 
@@ -587,7 +593,7 @@ function createTextRaster(text, fontKey, requestedSizeMm, alignment) {
   for (let y = 0; y < canvas.height; y++) {
     for (let x = 0; x < canvas.width; x++) {
       const alpha = data[(y * canvas.width + x) * 4 + 3];
-      if (alpha > 12) {
+      if (alpha > 10) {
         found = true;
         if (x < minX) minX = x;
         if (y < minY) minY = y;
@@ -632,20 +638,20 @@ function isTextCellFilled(raster, x0, y0, x1, y1) {
     }
   }
 
-  return total > 0 && (hits / total) > 0.18;
+  return total > 0 && (hits / total) > 0.14;
 }
 
 function buildVoxelTextGeometry(textWidth, textHeight, textDepth, raster) {
   const isMobileText = window.matchMedia("(max-width: 900px)").matches;
   const rows = THREE.MathUtils.clamp(
-    Math.round(textHeight * (isMobileText ? 900 : 1250)),
-    isMobileText ? 72 : 96,
-    isMobileText ? 150 : 220
+    Math.round(textHeight * (isMobileText ? 1250 : 1750)),
+    isMobileText ? 110 : 150,
+    isMobileText ? 220 : 320
   );
   const cols = THREE.MathUtils.clamp(
     Math.round(rows * raster.aspect),
-    isMobileText ? 90 : 120,
-    isMobileText ? 420 : 620
+    isMobileText ? 140 : 180,
+    isMobileText ? 720 : 1100
   );
 
   const cellW = textWidth / cols;
@@ -676,7 +682,7 @@ function buildVoxelTextGeometry(textWidth, textHeight, textDepth, raster) {
         const runEnd = col;
         const runCols = runEnd - runStart;
         const boxW = runCols * cellW;
-        const boxH = cellH * 1.04;
+        const boxH = cellH * 1.08;
 
         const geom = new THREE.BoxGeometry(
           boxW,
@@ -739,6 +745,83 @@ function createInsetTextMaterial(baseMaterial) {
 }
 
 
+
+function createBooleanCutMaskTexture(raster, tileWidth, tileHeight, textWidth, textHeight) {
+  const canvas = document.createElement("canvas");
+  const resolution = 2048;
+  canvas.width = resolution;
+  canvas.height = Math.max(
+    1024,
+    Math.round(resolution * (tileHeight / tileWidth))
+  );
+
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "rgba(255,255,255,1)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const drawW = canvas.width * (textWidth / tileWidth);
+  const drawH = canvas.height * (textHeight / tileHeight);
+  const x = (canvas.width - drawW) / 2;
+  const y = (canvas.height - drawH) / 2;
+
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.drawImage(raster.canvas, x, y, drawW, drawH);
+  ctx.globalCompositeOperation = "source-over";
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.NoColorSpace;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = true;
+  texture.anisotropy = Math.min(
+    16,
+    renderer.capabilities.getMaxAnisotropy()
+  );
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function createBooleanCoverPlane(tileWidth, tileHeight, baseMaterial, baseTop, raster, textWidth, textHeight) {
+  const alphaTexture = createBooleanCutMaskTexture(
+    raster,
+    tileWidth,
+    tileHeight,
+    textWidth,
+    textHeight
+  );
+
+  const material = new THREE.MeshPhysicalMaterial({
+    color: baseMaterial.color.clone(),
+    alphaMap: alphaTexture,
+    transparent: true,
+    alphaTest: 0.22,
+    roughness: baseMaterial.roughness,
+    metalness: 0,
+    clearcoat: baseMaterial.clearcoat,
+    clearcoatRoughness: baseMaterial.clearcoatRoughness,
+    sheen: baseMaterial.sheen,
+    envMapIntensity: 0.28,
+    side: THREE.DoubleSide,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2
+  });
+
+  const plane = new THREE.Mesh(
+    new THREE.PlaneGeometry(tileWidth, tileHeight),
+    material
+  );
+  plane.position.z = baseTop + 0.0013;
+  plane.renderOrder = 11;
+  plane.userData.disposableTexture = alphaTexture;
+  return plane;
+}
+
+
 function buildTextObject(w, h, baseMaterial, baseTop) {
   const text = state.appliedText.trim();
   if (!text) return null;
@@ -779,31 +862,44 @@ function buildTextObject(w, h, baseMaterial, baseTop) {
 
   const group = new THREE.Group();
 
+  // Fondo della cavità.
   const floorGeometry = textGeometry.clone();
-  floorGeometry.scale(0.985, 0.985, 0.18);
+  floorGeometry.scale(0.985, 0.985, 0.96);
 
   const floorMesh = new THREE.Mesh(
     floorGeometry,
     createInsetTextMaterial(baseMaterial)
   );
+  floorMesh.position.z = baseTop - textDepth + 0.0011;
+  floorMesh.renderOrder = 9;
 
-  floorMesh.position.z = baseTop - textDepth * 0.16 + 0.0012;
-  floorMesh.renderOrder = 12;
+  // Parete/bordo interno della cavità.
+  const wallGeometry = textGeometry.clone();
+  wallGeometry.scale(1.045, 1.045, 0.26);
 
-  const rimMaterial = createRaisedTextMaterial(baseMaterial);
-  rimMaterial.color.multiplyScalar(0.78);
-  rimMaterial.roughness = Math.min(1, rimMaterial.roughness + 0.18);
-  rimMaterial.clearcoat = 0.10;
+  const wallMaterial = createRaisedTextMaterial(baseMaterial);
+  wallMaterial.color.multiplyScalar(0.82);
+  wallMaterial.roughness = Math.min(1, wallMaterial.roughness + 0.20);
+  wallMaterial.clearcoat = 0.08;
 
-  const rimGeometry = textGeometry.clone();
-  rimGeometry.scale(1.035, 1.035, 0.055);
+  const wallMesh = new THREE.Mesh(wallGeometry, wallMaterial);
+  wallMesh.position.z = baseTop - textDepth * 0.18 + 0.0010;
+  wallMesh.renderOrder = 10;
 
-  const rimMesh = new THREE.Mesh(rimGeometry, rimMaterial);
-  rimMesh.position.z = baseTop + 0.0007;
-  rimMesh.renderOrder = 10;
+  // Piano di copertura con foro del testo: simula un boolean in tempo reale.
+  const coverPlane = createBooleanCoverPlane(
+    w,
+    h,
+    baseMaterial,
+    baseTop,
+    raster,
+    textWidth,
+    textHeight
+  );
 
-  group.add(rimMesh);
   group.add(floorMesh);
+  group.add(wallMesh);
+  group.add(coverPlane);
   return group;
 }
 
@@ -1136,6 +1232,7 @@ document.querySelector("#glaze").addEventListener("change", event => {
 document.querySelector("#resetView").addEventListener("click", () => {
   tileGroup.rotation.set(-0.10, 0.22, 0);
   fitCameraToTile();
+  hasUserAdjustedCamera = false;
 });
 
 const textureFile = document.querySelector("#textureFile");
@@ -1499,7 +1596,6 @@ window.addEventListener("resize", resize);
 if ("ResizeObserver" in window) {
   const viewerResizeObserver = new ResizeObserver(() => {
     resize();
-    fitCameraToTile();
   });
   viewerResizeObserver.observe(viewer);
 }
@@ -1516,6 +1612,9 @@ rebuildTile();
 
 
 requestAnimationFrame(() => {
-  fitCameraToTile();
+  if (!hasInitialCameraFrame) {
+    fitCameraToTile();
+    hasInitialCameraFrame = true;
+  }
   animate();
 });
