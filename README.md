@@ -108,3 +108,20 @@ Per una pubblicazione commerciale è consigliato aggiungere successivamente:
 - rimossa la password amministrativa;
 - rimossa la Edge Function `admin-orders`;
 - gli ordini continuano a essere salvati nella tabella Supabase `orders`.
+
+
+## Aggiornamento v9 — rilievo e ceramica ad alta qualità
+
+- elaborazione delle immagini fino a 1024 px su desktop e 768 px su mobile;
+- mesh adattiva fino a circa 420 segmenti sul lato lungo;
+- campionamento bilineare;
+- filtro gaussiano anti-pixel;
+- normali geometriche ricalcolate;
+- riflessi ambientali generati localmente con `RoomEnvironment`;
+- materiale `MeshPhysicalMaterial`;
+- clearcoat differenziato per smalti lucidi e opachi;
+- micro-normal map procedurale per simulare piccole irregolarità ceramiche;
+- file immagine consentiti fino a 16 MB.
+
+Su telefoni meno potenti, l’elaborazione di immagini molto complesse può richiedere
+alcuni secondi. La risoluzione viene automaticamente bilanciata per non bloccare il browser.

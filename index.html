@@ -95,8 +95,11 @@
 
         <div class="control-group texture-upload">
         <label for="textureFile">Immagine da trasformare in rilievo</label>
-        <p class="field-help">Carica un logo o un motivo ad alto contrasto. Per impostazione iniziale le zone scure diventano rilievo reale.</p>
-        <input id="textureFile" type="file" accept="image/*" />
+        <p class="field-help">Carica un logo, un motivo o una fotografia. L’immagine viene elaborata ad alta definizione con filtraggio anti-pixel; le zone scure diventano rilievo reale.</p>
+        <input id="textureFile" type="file" accept="image/png,image/jpeg,image/webp" />
+        <p class="quality-note">
+          Qualità rilievo: alta definizione · elaborazione fino a 1024 px
+        </p>
 
         <div class="label-row relief-control">
           <label for="imageRelief">Intensità rilievo immagine</label>

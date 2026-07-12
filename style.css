@@ -599,3 +599,15 @@ select {
   white-space: nowrap;
   color: var(--accent);
 }
+
+
+.quality-note {
+  margin: 9px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(23, 63, 56, .07);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}

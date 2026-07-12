@@ -1,37 +1,56 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
 
 const GLAZES = {
   nero_opaco: {
     label: "Nero opaco",
-    color: "#171918",
-    roughness: 0.86
+    color: "#171817",
+    roughness: 0.78,
+    clearcoat: 0.08,
+    clearcoatRoughness: 0.68,
+    sheen: 0.08
   },
   bianco_lucido: {
     label: "Bianco lucido",
-    color: "#e8e6df",
-    roughness: 0.18
+    color: "#eeeDE7",
+    roughness: 0.16,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.08,
+    sheen: 0.16
   },
   verde_oliva_lucido: {
     label: "Verde oliva lucido",
-    color: "#626a43",
-    roughness: 0.18
+    color: "#616742",
+    roughness: 0.19,
+    clearcoat: 0.92,
+    clearcoatRoughness: 0.10,
+    sheen: 0.14
   },
   tortora: {
     label: "Tortora",
-    color: "#988b7c",
-    roughness: 0.46
+    color: "#958879",
+    roughness: 0.48,
+    clearcoat: 0.32,
+    clearcoatRoughness: 0.38,
+    sheen: 0.13
   },
   sabbia: {
     label: "Sabbia",
     color: "#b99463",
-    roughness: 0.62
+    roughness: 0.57,
+    clearcoat: 0.24,
+    clearcoatRoughness: 0.46,
+    sheen: 0.16
   },
   altro: {
     label: "Altro colore da concordare",
     color: "#aaa79f",
-    roughness: 0.42
+    roughness: 0.42,
+    clearcoat: 0.38,
+    clearcoatRoughness: 0.34,
+    sheen: 0.12
   }
 };
 
@@ -42,13 +61,23 @@ const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 100);
 camera.position.set(0, 0.1, 3.05);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.5));
 renderer.shadowMap.enabled = false;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.95;
+renderer.toneMappingExposure = 0.82;
+
 viewer.appendChild(renderer.domElement);
+
+// Ambiente neutro generato localmente: crea riflessi realistici sullo smalto
+// senza caricare fotografie HDR esterne.
+const pmremGenerator = new THREE.PMREMGenerator(renderer);
+const roomEnvironment = new RoomEnvironment();
+scene.environment = pmremGenerator.fromScene(roomEnvironment, 0.04).texture;
+roomEnvironment.dispose();
+pmremGenerator.dispose();
+
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
@@ -74,6 +103,49 @@ const tileGroup = new THREE.Group();
 tileGroup.rotation.x = -0.12;
 tileGroup.rotation.y = 0.24;
 scene.add(tileGroup);
+
+
+function createCeramicNormalTexture(size = 256) {
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  const image = ctx.createImageData(size, size);
+  const data = image.data;
+
+  // Micro-irregolarità molto fini, quasi impercettibili:
+  // evitano l'effetto plastica perfettamente liscia.
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const i = (y * size + x) * 4;
+      const wave =
+        Math.sin(x * 0.19) * 1.5 +
+        Math.cos(y * 0.23) * 1.5 +
+        Math.sin((x + y) * 0.07) * 1.0;
+      const noise = (Math.random() - 0.5) * 5;
+      const nx = Math.round(128 + wave + noise);
+      const ny = Math.round(128 - wave + noise);
+
+      data[i] = Math.max(0, Math.min(255, nx));
+      data[i + 1] = Math.max(0, Math.min(255, ny));
+      data[i + 2] = 255;
+      data[i + 3] = 255;
+    }
+  }
+
+  ctx.putImageData(image, 0, 0);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(5, 5);
+  texture.colorSpace = THREE.NoColorSpace;
+  texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  texture.needsUpdate = true;
+  return texture;
+}
+
+const ceramicNormalTexture = createCeramicNormalTexture();
 
 const state = {
   width: 100,
@@ -164,10 +236,75 @@ function sampleHeight(u, v) {
   return value;
 }
 
-function buildHeightmapRelief(w, h, material, baseTop) {
-  const segments = 180;
+function gaussianBlurGray(source, width, height, radius = 2) {
+  if (radius <= 0) return source;
 
-  // L'immagine viene contenuta nell'area utile senza deformazioni.
+  const kernelSize = radius * 2 + 1;
+  const sigma = Math.max(0.8, radius / 1.6);
+  const kernel = new Float32Array(kernelSize);
+  let kernelSum = 0;
+
+  for (let i = -radius; i <= radius; i++) {
+    const value = Math.exp(-(i * i) / (2 * sigma * sigma));
+    kernel[i + radius] = value;
+    kernelSum += value;
+  }
+
+  for (let i = 0; i < kernel.length; i++) {
+    kernel[i] /= kernelSum;
+  }
+
+  const temp = new Float32Array(source.length);
+  const result = new Uint8Array(source.length);
+
+  // Passaggio orizzontale
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let sum = 0;
+      for (let k = -radius; k <= radius; k++) {
+        const sx = Math.max(0, Math.min(width - 1, x + k));
+        sum += source[y * width + sx] * kernel[k + radius];
+      }
+      temp[y * width + x] = sum;
+    }
+  }
+
+  // Passaggio verticale
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let sum = 0;
+      for (let k = -radius; k <= radius; k++) {
+        const sy = Math.max(0, Math.min(height - 1, y + k));
+        sum += temp[sy * width + x] * kernel[k + radius];
+      }
+      result[y * width + x] = Math.round(sum);
+    }
+  }
+
+  return result;
+}
+
+function estimateMeshSegments(reliefWidth, reliefHeight) {
+  const isMobile = window.matchMedia("(max-width: 900px)").matches;
+  const maxSegments = isMobile ? 280 : 420;
+  const minSegments = isMobile ? 180 : 240;
+
+  const imageResolution = Math.max(state.heightWidth, state.heightHeight);
+  const desired = Math.round(imageResolution * (isMobile ? 0.45 : 0.58));
+
+  const longSide = Math.max(reliefWidth, reliefHeight);
+  const shortSide = Math.min(reliefWidth, reliefHeight);
+  const aspectCompensation = Math.sqrt(shortSide / longSide);
+
+  return Math.max(
+    minSegments,
+    Math.min(maxSegments, Math.round(desired * aspectCompensation))
+  );
+}
+
+
+function buildHeightmapRelief(w, h, material, baseTop) {
+  // L'immagine viene contenuta e centrata senza deformazioni.
   const availableFactor = 0.88;
   const availableW = w * availableFactor;
   const availableH = h * availableFactor;
@@ -185,7 +322,24 @@ function buildHeightmapRelief(w, h, material, baseTop) {
     reliefW = availableH * imageAspect;
   }
 
-  const geometry = new THREE.PlaneGeometry(reliefW, reliefH, segments, segments);
+  const baseSegments = estimateMeshSegments(reliefW, reliefH);
+  const longSide = Math.max(reliefW, reliefH);
+  const segmentsX = Math.max(
+    120,
+    Math.round(baseSegments * (reliefW / longSide))
+  );
+  const segmentsY = Math.max(
+    120,
+    Math.round(baseSegments * (reliefH / longSide))
+  );
+
+  const geometry = new THREE.PlaneGeometry(
+    reliefW,
+    reliefH,
+    segmentsX,
+    segmentsY
+  );
+
   const pos = geometry.attributes.position;
   const maxRelief = state.imageRelief / 100;
 
@@ -194,14 +348,18 @@ function buildHeightmapRelief(w, h, material, baseTop) {
     const y = pos.getY(i);
     const u = (x / reliefW) + 0.5;
     const v = (y / reliefH) + 0.5;
-    const z = 0.0015 + sampleHeight(u, v) * maxRelief;
+
+    // Il campionamento bilineare, combinato con la sfocatura gaussiana
+    // preventiva, riduce nettamente scalini e pixel visibili.
+    const z = 0.0012 + sampleHeight(u, v) * maxRelief;
     pos.setZ(i, z);
   }
 
   geometry.computeVertexNormals();
+  geometry.normalizeNormals();
 
   const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.set(0, 0, baseTop + 0.003);
+  mesh.position.set(0, 0, baseTop + 0.0025);
   return mesh;
 }
 
@@ -226,16 +384,19 @@ function rebuildTile() {
     color: glazeColor,
     roughness: glaze.roughness,
     metalness: 0,
-    clearcoat: glaze.roughness < 0.3 ? 0.9 : 0.28,
-    clearcoatRoughness: glaze.roughness < 0.3 ? 0.12 : 0.45,
-    sheen: 0.18,
+    clearcoat: glaze.clearcoat,
+    clearcoatRoughness: glaze.clearcoatRoughness,
+    sheen: glaze.sheen,
+    sheenColor: glazeColor.clone().lerp(new THREE.Color(0xffffff), 0.18),
     sheenRoughness: 0.72,
-    reflectivity: 0.4,
+    reflectivity: 0.46,
+    ior: 1.52,
+    normalMap: ceramicNormalTexture,
+    normalScale: new THREE.Vector2(0.055, 0.055),
+    envMapIntensity: glaze.roughness < 0.3 ? 0.78 : 0.42,
     side: THREE.DoubleSide
   });
 
-  // Stesso identico materiale per base e rilievo:
-  // il colore cambia uniformemente su tutta la mattonella.
   const reliefMat = ceramic.clone();
 
   const baseShape = roundedRectShape(w, h, Math.min(w,h)*.055);
@@ -337,8 +498,8 @@ textureFile.addEventListener("change", event => {
     return;
   }
 
-  if (file.size > 8 * 1024 * 1024) {
-    alert("Il file supera 8 MB.");
+  if (file.size > 16 * 1024 * 1024) {
+    alert("Il file supera 16 MB.");
     textureFile.value = "";
     return;
   }
@@ -349,12 +510,17 @@ textureFile.addEventListener("change", event => {
   reader.onload = e => {
     const img = new Image();
     img.onload = () => {
-      const maxSize = 256;
+      // Mantiene molta più informazione rispetto alla precedente
+      // elaborazione a 256 px.
+      const isMobileDevice = window.matchMedia("(max-width: 900px)").matches;
+      const maxSize = isMobileDevice ? 768 : 1024;
       const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1);
       const canvas = document.createElement("canvas");
       canvas.width = Math.max(2, Math.round(img.width * ratio));
       canvas.height = Math.max(2, Math.round(img.height * ratio));
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
 
       // Transparent PNG areas are treated as white background.
       ctx.fillStyle = "#ffffff";
@@ -384,7 +550,19 @@ textureFile.addEventListener("change", event => {
         heights[i] = Math.round(((raw[i] - minGray) / range) * 255);
       }
 
-      state.heightData = heights;
+      // Una sfocatura molto leggera elimina il gradino del singolo pixel
+      // senza cancellare i dettagli del disegno.
+      const longestSide = Math.max(canvas.width, canvas.height);
+      const blurRadius =
+        longestSide >= 900 ? 3 :
+        longestSide >= 600 ? 2 : 1;
+
+      state.heightData = gaussianBlurGray(
+        heights,
+        canvas.width,
+        canvas.height,
+        blurRadius
+      );
       state.heightWidth = canvas.width;
       state.heightHeight = canvas.height;
       state.textureEnabled = true;
