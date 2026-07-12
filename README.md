@@ -289,3 +289,13 @@ alcuni secondi. La risoluzione viene automaticamente bilanciata per non bloccare
 - la camera non torna più al punto iniziale quando modifichi i parametri;
 - il reset vista avviene solo col pulsante dedicato;
 - intestazione aggiornata a `Kanè Tile Studio v24`.
+
+
+## Aggiornamento v25
+
+- versione visibile aggiornata a `Kanè Tile Studio v25`;
+- colore iniziale della prima mattonella impostato su `Sabbia`;
+- rimossa la modalità scritta incisa;
+- rimossa la possibilità di allineare il testo;
+- il testo resta centrato automaticamente;
+- confermata la rimozione del reset automatico camera quando cambi parametri.

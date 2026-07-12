@@ -193,7 +193,7 @@ const ceramicCrackleTexture = createCrackleTexture();
 const state = {
   width: 100,
   height: 100,
-  glaze: "marrone_lucido",
+  glaze: "sabbia",
   textureEnabled: false,
   imageRelief: 3,
   imageContrast: 100,
@@ -569,16 +569,8 @@ function createTextRaster(text, fontKey, requestedSizeMm, alignment) {
   const lineHeight = fontSize * lineSpacingFactor;
   const firstY = canvas.height / 2 - ((lines.length - 1) * lineHeight) / 2;
 
-  let anchorX = canvas.width / 2;
-  if (alignment === "left") {
-    ctx.textAlign = "left";
-    anchorX = canvas.width / 2 - blockWidth / 2;
-  } else if (alignment === "right") {
-    ctx.textAlign = "right";
-    anchorX = canvas.width / 2 + blockWidth / 2;
-  } else {
-    ctx.textAlign = "center";
-  }
+  const anchorX = canvas.width / 2;
+  ctx.textAlign = "center";
 
   lines.forEach((line, index) => {
     ctx.fillText(line, anchorX, firstY + index * lineHeight);
@@ -826,7 +818,7 @@ function buildTextObject(w, h, baseMaterial, baseTop) {
   const text = state.appliedText.trim();
   if (!text) return null;
 
-  const raster = createTextRaster(text, state.textFont, state.textSize, state.textAlign);
+  const raster = createTextRaster(text, state.textFont, state.textSize, "center");
 
   let textHeight = state.textSize / 100;
   textHeight = Math.min(textHeight * Math.max(1, raster.lineCount * 0.92), h * 0.46);
@@ -850,57 +842,13 @@ function buildTextObject(w, h, baseMaterial, baseTop) {
 
   if (!textGeometry) return null;
 
-  if (!state.textNegative) {
-    const mesh = new THREE.Mesh(
-      textGeometry,
-      createRaisedTextMaterial(baseMaterial)
-    );
-    mesh.position.z = baseTop + 0.0015;
-    mesh.renderOrder = 9;
-    return mesh;
-  }
-
-  const group = new THREE.Group();
-
-  // Fondo della cavità.
-  const floorGeometry = textGeometry.clone();
-  floorGeometry.scale(0.985, 0.985, 0.96);
-
-  const floorMesh = new THREE.Mesh(
-    floorGeometry,
-    createInsetTextMaterial(baseMaterial)
+  const mesh = new THREE.Mesh(
+    textGeometry,
+    createRaisedTextMaterial(baseMaterial)
   );
-  floorMesh.position.z = baseTop - textDepth + 0.0011;
-  floorMesh.renderOrder = 9;
-
-  // Parete/bordo interno della cavità.
-  const wallGeometry = textGeometry.clone();
-  wallGeometry.scale(1.045, 1.045, 0.26);
-
-  const wallMaterial = createRaisedTextMaterial(baseMaterial);
-  wallMaterial.color.multiplyScalar(0.82);
-  wallMaterial.roughness = Math.min(1, wallMaterial.roughness + 0.20);
-  wallMaterial.clearcoat = 0.08;
-
-  const wallMesh = new THREE.Mesh(wallGeometry, wallMaterial);
-  wallMesh.position.z = baseTop - textDepth * 0.18 + 0.0010;
-  wallMesh.renderOrder = 10;
-
-  // Piano di copertura con foro del testo: simula un boolean in tempo reale.
-  const coverPlane = createBooleanCoverPlane(
-    w,
-    h,
-    baseMaterial,
-    baseTop,
-    raster,
-    textWidth,
-    textHeight
-  );
-
-  group.add(floorMesh);
-  group.add(wallMesh);
-  group.add(coverPlane);
-  return group;
+  mesh.position.z = baseTop + 0.0015;
+  mesh.renderOrder = 9;
+  return mesh;
 }
 
 
@@ -1079,7 +1027,7 @@ applyTextButton.addEventListener("click", () => {
   rebuildTile();
 
   textApplyStatus.textContent =
-    "Modello 3D della scritta applicato.";
+    "Scritta 3D applicata centralmente.";
   textApplyStatus.className = "text-apply-status success";
 });
 
@@ -1168,41 +1116,6 @@ document.querySelector("#textSize").addEventListener("input", event => {
 });
 
 
-const alignmentButtons = document.querySelectorAll(".alignment-button");
-alignmentButtons.forEach(button => {
-  button.addEventListener("click", () => {
-    state.textAlign = button.dataset.align;
-
-    alignmentButtons.forEach(item => {
-      const active = item === button;
-      item.classList.toggle("active", active);
-      item.setAttribute("aria-pressed", String(active));
-    });
-
-    if (state.appliedText) {
-      rebuildTile();
-      const label = {
-        left: "sinistra",
-        center: "centro",
-        right: "destra"
-      }[state.textAlign];
-      textApplyStatus.textContent = `Allineamento: ${label}.`;
-      textApplyStatus.className = "text-apply-status success";
-    }
-  });
-});
-
-document.querySelector("#textNegative").addEventListener("change", event => {
-  state.textNegative = event.target.checked;
-
-  if (state.appliedText) {
-    rebuildTile();
-    textApplyStatus.textContent = state.textNegative
-      ? "Modalità incisa applicata."
-      : "Modalità in rilievo applicata.";
-    textApplyStatus.className = "text-apply-status success";
-  }
-});
 
 document.querySelector("#textDepth").addEventListener("input", event => {
   state.textDepth = Number(event.target.value);
@@ -1482,8 +1395,7 @@ orderForm.addEventListener("submit", async event => {
       custom_text: state.serviceType === "text" ? state.appliedText.trim() : "",
       text_font: state.serviceType === "text" ? state.textFont : null,
       text_size_mm: state.serviceType === "text" ? state.textSize : null,
-      text_negative: state.serviceType === "text" ? state.textNegative : null,
-      text_alignment: state.serviceType === "text" ? state.textAlign : null,
+
       text_depth_mm: state.serviceType === "text" ? state.textDepth : null,
       frame_style: state.frameStyle,
       estimated_price_per_sqm_eur: Number(

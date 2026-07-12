@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Kanè Tile Studio v24 — Configuratore 3D</title>
+  <title>Kanè Tile Studio v25 — Configuratore 3D</title>
   <meta name="description" content="Bozza di configuratore 3D per mattonelle personalizzate." />
   <link rel="stylesheet" href="./style.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -22,7 +22,7 @@
     <div class="brand">
       <span class="brand-mark">K</span>
       <div>
-        <strong>Kanè Tile Studio <span class="version-badge">v24</span></strong>
+        <strong>Kanè Tile Studio <span class="version-badge">v25</span></strong>
         <small>Disegna la tua mattonella</small>
       </div>
     </div>
@@ -71,8 +71,8 @@
           <option value="bianco_lucido">Bianco lucido</option>
           <option value="verde_oliva_lucido">Verde oliva lucido</option>
           <option value="tortora">Tortora</option>
-          <option value="marrone_lucido" selected>Marrone lucido</option>
-          <option value="sabbia">Sabbia</option>
+          <option value="marrone_lucido">Marrone lucido</option>
+          <option value="sabbia" selected>Sabbia</option>
           <option value="altro">Altro colore da concordare</option>
         </select>
       </div>
@@ -184,23 +184,6 @@
               <input id="textSize" type="range" min="6" max="32" value="14" step="1" />
             </div>
           </div>
-
-          <div class="control-group text-alignment-group">
-            <label>Allineamento testo</label>
-            <div class="alignment-buttons" role="group" aria-label="Allineamento testo">
-              <button class="alignment-button" type="button" data-align="left" aria-pressed="false">Sinistra</button>
-              <button class="alignment-button active" type="button" data-align="center" aria-pressed="true">Centro</button>
-              <button class="alignment-button" type="button" data-align="right" aria-pressed="false">Destra</button>
-            </div>
-          </div>
-
-          <label class="toggle-row text-negative-toggle">
-            <span>
-              <strong>Scritta incisa</strong>
-              <small>Attiva per creare una scritta in negativo.</small>
-            </span>
-            <input id="textNegative" type="checkbox" />
-          </label>
           <div class="control-group">
             <div class="label-row">
               <label for="textDepth">Profondità scritta</label>
