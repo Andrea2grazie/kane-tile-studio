@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 
 
 const GLAZES = {
@@ -493,54 +494,7 @@ function buildHeightmapRelief(w, h, material, baseTop) {
 
 
 
-const TEXT_FONT_STACKS = {
-  helvetiker: '"Arial", "Helvetica Neue", sans-serif',
-  optimer: '"Trebuchet MS", "Avenir Next", sans-serif',
-  gentilis: 'Georgia, "Times New Roman", serif',
-  droid_serif: '"Palatino Linotype", Palatino, Georgia, serif'
-};
 
-function createTextMaskTexture(text, fontKey) {
-  const canvas = document.createElement("canvas");
-  canvas.width = 1536;
-  canvas.height = 512;
-
-  const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // Sfondo nero e testo bianco: il bianco genera il rilievo/bump.
-  ctx.fillStyle = "#000000";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  const fontStack = TEXT_FONT_STACKS[fontKey] || TEXT_FONT_STACKS.helvetiker;
-  let fontSize = 260;
-  const maxWidth = canvas.width * 0.86;
-
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillStyle = "#ffffff";
-
-  while (fontSize > 40) {
-    ctx.font = `700 ${fontSize}px ${fontStack}`;
-    if (ctx.measureText(text).width <= maxWidth) break;
-    fontSize -= 6;
-  }
-
-  ctx.font = `700 ${fontSize}px ${fontStack}`;
-  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.NoColorSpace;
-  texture.wrapS = THREE.ClampToEdgeWrapping;
-  texture.wrapT = THREE.ClampToEdgeWrapping;
-  texture.minFilter = THREE.LinearMipmapLinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.generateMipmaps = true;
-  texture.anisotropy = Math.min(16, renderer.capabilities.getMaxAnisotropy());
-  texture.needsUpdate = true;
-
-  return texture;
-}
 
 const LOCAL_FONT_STACKS = {
   helvetiker: '"Helvetica Neue", Arial, sans-serif',
@@ -549,7 +503,7 @@ const LOCAL_FONT_STACKS = {
   droid_serif: '"Palatino Linotype", Palatino, Georgia, serif'
 };
 
-function createLocalTextTexture(text, fontKey, requestedSizeMm) {
+function createTextRaster(text, fontKey, requestedSizeMm) {
   const canvas = document.createElement("canvas");
   canvas.width = 2048;
   canvas.height = 768;
@@ -560,7 +514,6 @@ function createLocalTextTexture(text, fontKey, requestedSizeMm) {
   const fontStack =
     LOCAL_FONT_STACKS[fontKey] || LOCAL_FONT_STACKS.helvetiker;
 
-  // La dimensione selezionata influenza realmente la scala del testo.
   const normalizedSize = THREE.MathUtils.clamp(
     (requestedSizeMm - 6) / (32 - 6),
     0,
@@ -584,19 +537,62 @@ function createLocalTextTexture(text, fontKey, requestedSizeMm) {
   }
 
   ctx.font = `700 ${fontSize}px ${fontStack}`;
-
-  const metrics = ctx.measureText(text);
-  const measuredWidth = Math.max(1, metrics.width);
-  const measuredHeight = Math.max(
-    1,
-    (metrics.actualBoundingBoxAscent || fontSize * 0.75) +
-    (metrics.actualBoundingBoxDescent || fontSize * 0.20)
-  );
-
   ctx.fillText(text, canvas.width / 2, canvas.height / 2);
 
+  const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = image.data;
+
+  let minX = canvas.width, minY = canvas.height, maxX = 0, maxY = 0;
+  let found = false;
+
+  for (let y = 0; y < canvas.height; y++) {
+    for (let x = 0; x < canvas.width; x++) {
+      const alpha = data[(y * canvas.width + x) * 4 + 3];
+      if (alpha > 20) {
+        found = true;
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  if (!found) {
+    minX = 0; minY = 0; maxX = canvas.width - 1; maxY = canvas.height - 1;
+  }
+
+  const contentWidth = Math.max(1, maxX - minX + 1);
+  const contentHeight = Math.max(1, maxY - minY + 1);
+
+  return {
+    canvas,
+    ctx,
+    data,
+    width: canvas.width,
+    height: canvas.height,
+    bounds: { minX, minY, maxX, maxY, contentWidth, contentHeight },
+    aspect: contentWidth / contentHeight
+  };
+}
+
+function createInverseAlphaTexture(raster) {
+  const canvas = document.createElement("canvas");
+  canvas.width = raster.width;
+  canvas.height = raster.height;
+
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "rgba(255,255,255,1)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.drawImage(raster.canvas, 0, 0);
+  ctx.globalCompositeOperation = "source-over";
+
   const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.colorSpace = THREE.NoColorSpace;
   texture.wrapS = THREE.ClampToEdgeWrapping;
   texture.wrapT = THREE.ClampToEdgeWrapping;
   texture.minFilter = THREE.LinearMipmapLinearFilter;
@@ -608,27 +604,166 @@ function createLocalTextTexture(text, fontKey, requestedSizeMm) {
   );
   texture.needsUpdate = true;
 
-  return {
-    texture,
-    aspect: measuredWidth / measuredHeight
-  };
+  return texture;
 }
 
-function buildLocalTextSurface(w, h, baseMaterial, baseTop) {
+function isTextCellFilled(raster, x0, y0, x1, y1) {
+  let hits = 0;
+  let total = 0;
+
+  for (let y = y0; y < y1; y += 2) {
+    for (let x = x0; x < x1; x += 2) {
+      const alpha = raster.data[(y * raster.width + x) * 4 + 3];
+      if (alpha > 80) hits++;
+      total++;
+    }
+  }
+
+  return total > 0 && (hits / total) > 0.28;
+}
+
+function buildVoxelTextGeometry(textWidth, textHeight, textDepth, raster) {
+  const rows = THREE.MathUtils.clamp(
+    Math.round(textHeight * 520),
+    28,
+    96
+  );
+  const cols = THREE.MathUtils.clamp(
+    Math.round(rows * raster.aspect),
+    32,
+    260
+  );
+
+  const cellW = textWidth / cols;
+  const cellH = textHeight / rows;
+
+  const geometries = [];
+  const { minX, minY, contentWidth, contentHeight } = raster.bounds;
+
+  for (let row = 0; row < rows; row++) {
+    let runStart = -1;
+
+    for (let col = 0; col <= cols; col++) {
+      let filled = false;
+      if (col < cols) {
+        const px0 = Math.floor(minX + (col / cols) * contentWidth);
+        const px1 = Math.ceil(minX + ((col + 1) / cols) * contentWidth);
+        const py0 = Math.floor(minY + (row / rows) * contentHeight);
+        const py1 = Math.ceil(minY + ((row + 1) / rows) * contentHeight);
+        filled = isTextCellFilled(raster, px0, py0, px1, py1);
+      }
+
+      if (filled && runStart === -1) {
+        runStart = col;
+      }
+
+      const shouldClose = (!filled || col === cols) && runStart !== -1;
+      if (shouldClose) {
+        const runEnd = col;
+        const runCols = runEnd - runStart;
+        const boxW = runCols * cellW;
+        const boxH = cellH * 0.94;
+
+        const geom = new THREE.BoxGeometry(
+          boxW,
+          boxH,
+          textDepth
+        );
+
+        const centerX = -textWidth / 2 + (runStart * cellW) + boxW / 2;
+        const centerY = textHeight / 2 - (row * cellH) - cellH / 2;
+
+        geom.translate(centerX, centerY, textDepth / 2);
+        geometries.push(geom);
+        runStart = -1;
+      }
+    }
+  }
+
+  if (geometries.length === 0) return null;
+  if (geometries.length === 1) return geometries[0];
+
+  const merged = mergeGeometries(geometries, false);
+  geometries.forEach(g => g.dispose());
+  return merged;
+}
+
+function createRaisedTextMaterial(baseMaterial) {
+  const color = baseMaterial.color.clone().offsetHSL(0, 0, 0.03);
+
+  return new THREE.MeshPhysicalMaterial({
+    color,
+    roughness: Math.max(0.15, baseMaterial.roughness - 0.05),
+    metalness: 0,
+    clearcoat: baseMaterial.clearcoat,
+    clearcoatRoughness: baseMaterial.clearcoatRoughness,
+    sheen: baseMaterial.sheen,
+    sheenColor: color.clone().lerp(new THREE.Color(0xffffff), 0.12),
+    sheenRoughness: 0.66,
+    reflectivity: 0.38,
+    ior: 1.50,
+    envMapIntensity: 0.36,
+    side: THREE.DoubleSide
+  });
+}
+
+function createInsetTextMaterial(baseMaterial) {
+  const color = baseMaterial.color.clone().multiplyScalar(0.60);
+
+  return new THREE.MeshPhysicalMaterial({
+    color,
+    roughness: Math.min(1, baseMaterial.roughness + 0.16),
+    metalness: 0,
+    clearcoat: Math.max(0.06, baseMaterial.clearcoat * 0.30),
+    clearcoatRoughness: 0.55,
+    sheen: 0.02,
+    reflectivity: 0.18,
+    ior: 1.46,
+    envMapIntensity: 0.18,
+    side: THREE.DoubleSide
+  });
+}
+
+function createCoverMaskPlane(textWidth, textHeight, raster, baseMaterial, baseTop) {
+  const inverseAlpha = createInverseAlphaTexture(raster);
+
+  const material = new THREE.MeshPhysicalMaterial({
+    color: baseMaterial.color.clone(),
+    alphaMap: inverseAlpha,
+    transparent: true,
+    alphaTest: 0.32,
+    roughness: baseMaterial.roughness,
+    metalness: 0,
+    clearcoat: baseMaterial.clearcoat,
+    clearcoatRoughness: baseMaterial.clearcoatRoughness,
+    envMapIntensity: 0.30,
+    side: THREE.DoubleSide,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1
+  });
+
+  const plane = new THREE.Mesh(
+    new THREE.PlaneGeometry(textWidth, textHeight),
+    material
+  );
+
+  plane.position.z = baseTop + 0.0012;
+  plane.renderOrder = 8;
+  plane.userData.disposableTexture = inverseAlpha;
+  return plane;
+}
+
+function buildTextObject(w, h, baseMaterial, baseTop) {
   const text = state.appliedText.trim();
   if (!text) return null;
 
-  const { texture, aspect } = createLocalTextTexture(
-    text,
-    state.textFont,
-    state.textSize
-  );
+  const raster = createTextRaster(text, state.textFont, state.textSize);
 
-  // Altezza reale della scritta in funzione dei millimetri selezionati.
   let textHeight = state.textSize / 100;
-  textHeight = Math.min(textHeight, h * 0.30);
+  textHeight = Math.min(textHeight, h * 0.28);
 
-  let textWidth = textHeight * aspect;
+  let textWidth = textHeight * raster.aspect;
   const maxWidth = w * 0.70;
 
   if (textWidth > maxWidth) {
@@ -637,68 +772,48 @@ function buildLocalTextSurface(w, h, baseMaterial, baseTop) {
     textHeight *= scale;
   }
 
-  const segmentsX = Math.max(120, Math.round(320 * (textWidth / maxWidth)));
-  const segmentsY = 110;
-
-  const geometry = new THREE.PlaneGeometry(
+  const textDepth = Math.max(0.006, state.textDepth / 100);
+  const textGeometry = buildVoxelTextGeometry(
     textWidth,
     textHeight,
-    segmentsX,
-    segmentsY
+    textDepth,
+    raster
   );
 
-  const textColor = baseMaterial.color.clone();
+  if (!textGeometry) return null;
 
-  if (state.textNegative) {
-    textColor.multiplyScalar(0.58);
-  } else {
-    textColor.offsetHSL(0, 0, 0.035);
+  if (!state.textNegative) {
+    const mesh = new THREE.Mesh(
+      textGeometry,
+      createRaisedTextMaterial(baseMaterial)
+    );
+    mesh.position.z = baseTop + 0.0015;
+    mesh.renderOrder = 9;
+    return mesh;
   }
 
-  const depthWorld = state.textDepth / 100;
+  const group = new THREE.Group();
 
-  const material = new THREE.MeshPhysicalMaterial({
-    color: textColor,
-    map: texture,
-    alphaMap: texture,
-    displacementMap: texture,
-    displacementScale:
-      (state.textNegative ? -1 : 1) * depthWorld,
-    displacementBias:
-      state.textNegative ? depthWorld : 0,
-    bumpMap: texture,
-    bumpScale:
-      (state.textNegative ? -1 : 1) * (depthWorld * 0.45),
-    transparent: true,
-    alphaTest: 0.32,
-    opacity: 1,
-    depthWrite: true,
-    roughness: state.textNegative
-      ? Math.min(1, baseMaterial.roughness + 0.16)
-      : Math.max(0.16, baseMaterial.roughness - 0.04),
-    metalness: 0,
-    clearcoat: state.textNegative ? 0.08 : baseMaterial.clearcoat,
-    clearcoatRoughness: state.textNegative
-      ? 0.58
-      : baseMaterial.clearcoatRoughness,
-    envMapIntensity: 0.38,
-    side: THREE.DoubleSide,
-    polygonOffset: true,
-    polygonOffsetFactor: -3,
-    polygonOffsetUnits: -3
-  });
-
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.set(
-    0,
-    0,
-    baseTop + (state.textNegative ? 0.004 : 0.007)
+  const insetMesh = new THREE.Mesh(
+    textGeometry,
+    createInsetTextMaterial(baseMaterial)
   );
-  mesh.renderOrder = 10;
-  mesh.userData.disposableTexture = texture;
+  insetMesh.position.z = baseTop - textDepth + 0.0006;
+  insetMesh.renderOrder = 7;
 
-  return mesh;
+  const coverPlane = createCoverMaskPlane(
+    textWidth,
+    textHeight,
+    raster,
+    baseMaterial,
+    baseTop
+  );
+
+  group.add(insetMesh);
+  group.add(coverPlane);
+  return group;
 }
+
 
 function flashViewer() {
   const panel = document.querySelector(".viewer-panel");
@@ -758,7 +873,7 @@ function rebuildTile() {
   }
 
   if (state.serviceType === "text") {
-    const textMesh = buildLocalTextSurface(w, h, reliefMat, baseTop);
+    const textMesh = buildTextObject(w, h, reliefMat, baseTop);
     if (textMesh) tileGroup.add(textMesh);
   }
 
@@ -876,7 +991,7 @@ applyTextButton.addEventListener("click", () => {
   rebuildTile();
 
   textApplyStatus.textContent =
-    "Scritta applicata centralmente.";
+    "Modello 3D della scritta applicato.";
   textApplyStatus.className = "text-apply-status success";
 });
 
@@ -901,7 +1016,7 @@ document.querySelector("#textSize").addEventListener("input", event => {
   if (state.appliedText) {
     rebuildTile();
     textApplyStatus.textContent =
-      `Dimensione aggiornata: ${state.textSize} mm`;
+      `Dimensione modello testo: ${state.textSize} mm`;
     textApplyStatus.className = "text-apply-status success";
   }
 });
@@ -921,7 +1036,7 @@ document.querySelector("#textDepth").addEventListener("input", event => {
   if (state.appliedText) {
     rebuildTile();
     textApplyStatus.textContent =
-      `Profondità aggiornata: ${formattedDepth}`;
+      `Profondità modello testo: ${formattedDepth}`;
     textApplyStatus.className = "text-apply-status success";
   }
 });

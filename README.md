@@ -230,3 +230,15 @@ alcuni secondi. La risoluzione viene automaticamente bilanciata per non bloccare
 - valore numerico aggiornato immediatamente;
 - profondità aggiornata immediatamente;
 - rilievo positivo e negativo mantenuti.
+
+
+## Aggiornamento v20 — scritta come modello 3D separato
+
+- la scritta non viene più “stampata” sulla superficie della mattonella;
+- il testo viene rasterizzato e convertito in un vero modello 3D separato;
+- il modello è composto da volumi 3D indipendenti, poi appoggiati alla mattonella;
+- la dimensione del cursore agisce direttamente sul modello 3D;
+- per la modalità incisa:
+  - viene creato un volume del testo ribassato;
+  - sopra viene aggiunta una maschera che simula l’apertura del materiale;
+  - l’effetto finale è più vicino a un boolean in tempo reale.
