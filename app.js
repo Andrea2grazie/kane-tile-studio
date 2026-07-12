@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { FontLoader } from "three/addons/loaders/FontLoader.js";
+import { TextGeometry } from "three/addons/geometries/TextGeometry.js";
 
 
 const GLAZES = {
@@ -116,6 +118,26 @@ scene.add(tileGroup);
 
 
 
+
+
+const fontLoader = new FontLoader();
+const fontCache = new Map();
+
+const FONT_URLS = {
+  helvetiker: "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/fonts/helvetiker_regular.typeface.json",
+  optimer: "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/fonts/optimer_regular.typeface.json",
+  gentilis: "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/fonts/gentilis_regular.typeface.json",
+  droid_serif: "https://cdn.jsdelivr.net/npm/three@0.185.0/examples/fonts/droid/droid_serif_regular.typeface.json"
+};
+
+async function ensureFontLoaded(fontKey) {
+  if (fontCache.has(fontKey)) return fontCache.get(fontKey);
+
+  const url = FONT_URLS[fontKey] || FONT_URLS.helvetiker;
+  const font = await fontLoader.loadAsync(url);
+  fontCache.set(fontKey, font);
+  return font;
+}
 
 function createCeramicNormalTexture(size = 256) {
   const canvas = document.createElement("canvas");
@@ -540,26 +562,70 @@ function createTextMaskTexture(text, fontKey) {
   return texture;
 }
 
-function buildRealtimeTextSurface(w, h, baseMaterial, baseTop) {
+function buildRealTextGeometry(w, h, baseMaterial, baseTop) {
   const text = state.appliedText.trim();
-  if (!text) return null;
+  const font = fontCache.get(state.textFont);
 
-  const innerW = w * 0.70;
-  const innerH = h * 0.30;
-  const geometry = new THREE.PlaneGeometry(innerW, innerH, 480, 180);
-  const maskTexture = createTextMaskTexture(text, state.textFont);
+  if (!text || !font) return null;
+
+  const requestedSize = state.textSize / 100;
+  const requestedDepth = state.textDepth / 100;
+
+  const geometry = new TextGeometry(text, {
+    font,
+    size: requestedSize,
+    depth: requestedDepth,
+    curveSegments: 14,
+    bevelEnabled: true,
+    bevelThickness: Math.min(0.003, requestedDepth * 0.20),
+    bevelSize: Math.min(0.0024, requestedDepth * 0.16),
+    bevelOffset: 0,
+    bevelSegments: 3
+  });
+
+  geometry.computeBoundingBox();
+
+  const box = geometry.boundingBox;
+  const geometryWidth = box.max.x - box.min.x;
+  const geometryHeight = box.max.y - box.min.y;
+
+  const maxWidth = w * 0.68;
+  const maxHeight = h * 0.22;
+
+  const fitScale = Math.min(
+    1,
+    maxWidth / Math.max(geometryWidth, 0.0001),
+    maxHeight / Math.max(geometryHeight, 0.0001)
+  );
+
+  geometry.translate(
+    -(box.min.x + geometryWidth / 2),
+    -(box.min.y + geometryHeight / 2),
+    0
+  );
+
   const material = baseMaterial.clone();
 
-  material.displacementMap = maskTexture;
-  material.displacementScale = (state.textNegative ? -1 : 1) * (state.textDepth / 70);
-  material.displacementBias = state.textNegative ? (state.textDepth / 70) : 0;
-  material.bumpMap = maskTexture;
-  material.bumpScale = (state.textNegative ? -1 : 1) * (state.textDepth / 180);
-  material.needsUpdate = true;
+  // Per l'incisione usiamo una tinta leggermente più scura e posizioniamo
+  // le lettere parzialmente dentro la superficie, così l'effetto è leggibile.
+  if (state.textNegative) {
+    material.color = material.color.clone().multiplyScalar(0.74);
+    material.roughness = Math.min(1, material.roughness + 0.10);
+  }
 
   const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.set(0, 0, baseTop + 0.006);
-  mesh.userData.disposableTexture = maskTexture;
+  mesh.scale.setScalar(fitScale);
+
+  const depthAfterScale = requestedDepth * fitScale;
+
+  mesh.position.set(
+    0,
+    0,
+    state.textNegative
+      ? baseTop - depthAfterScale * 0.58
+      : baseTop + 0.004
+  );
+
   return mesh;
 }
 
@@ -621,8 +687,8 @@ function rebuildTile() {
   }
 
   if (state.serviceType === "text") {
-    const textSurface = buildRealtimeTextSurface(w, h, reliefMat, baseTop);
-    if (textSurface) tileGroup.add(textSurface);
+    const textMesh = buildRealTextGeometry(w, h, reliefMat, baseTop);
+    if (textMesh) tileGroup.add(textMesh);
   }
 
   const maxSide = Math.max(w,h);
@@ -713,7 +779,7 @@ document.querySelector("#tileText").addEventListener("input", event => {
   textApplyStatus.className = "text-apply-status";
 });
 
-applyTextButton.addEventListener("click", () => {
+applyTextButton.addEventListener("click", async () => {
   const value = state.tileText.trim();
 
   if (!value) {
@@ -724,15 +790,48 @@ applyTextButton.addEventListener("click", () => {
     return;
   }
 
-  state.appliedText = value;
-  textApplyStatus.textContent = "Scritta applicata centralmente.";
-  textApplyStatus.className = "text-apply-status success";
-  rebuildTile();
+  applyTextButton.disabled = true;
+  applyTextButton.textContent = "Applicazione in corso…";
+  textApplyStatus.textContent = "Caricamento del font e creazione della geometria 3D…";
+  textApplyStatus.className = "text-apply-status";
+
+  try {
+    await ensureFontLoaded(state.textFont);
+
+    state.appliedText = value;
+    rebuildTile();
+
+    textApplyStatus.textContent = "Scritta 3D applicata centralmente.";
+    textApplyStatus.className = "text-apply-status success";
+  } catch (error) {
+    console.error("Errore nella creazione della scritta:", error);
+    textApplyStatus.textContent =
+      "Non è stato possibile caricare il font. Controlla la connessione e riprova.";
+    textApplyStatus.className = "text-apply-status error";
+  } finally {
+    applyTextButton.disabled = false;
+    applyTextButton.textContent = "Applica scritta";
+  }
 });
 
-document.querySelector("#textFont").addEventListener("change", event => {
+document.querySelector("#textFont").addEventListener("change", async event => {
   state.textFont = event.target.value;
-  if (state.appliedText) rebuildTile();
+
+  if (!state.appliedText) return;
+
+  textApplyStatus.textContent = "Aggiornamento del font…";
+  textApplyStatus.className = "text-apply-status";
+
+  try {
+    await ensureFontLoaded(state.textFont);
+    rebuildTile();
+    textApplyStatus.textContent = "Font aggiornato.";
+    textApplyStatus.className = "text-apply-status success";
+  } catch (error) {
+    console.error(error);
+    textApplyStatus.textContent = "Errore durante il caricamento del font.";
+    textApplyStatus.className = "text-apply-status error";
+  }
 });
 
 document.querySelector("#textSize").addEventListener("input", event => {
@@ -1138,6 +1237,11 @@ function animate() {
 resize();
 updateServiceVisibility();
 rebuildTile();
+
+ensureFontLoaded(state.textFont).catch(error => {
+  console.warn("Precaricamento font non riuscito:", error);
+});
+
 requestAnimationFrame(() => {
   fitCameraToTile();
   animate();
