@@ -958,3 +958,35 @@ select {
   color: var(--accent);
   font-weight: 700;
 }
+
+
+/* v31 — il viewer desktop occupa solo l'altezza visibile dello schermo.
+   La colonna dei controlli scorre autonomamente e non allunga più il canvas. */
+@media (min-width: 901px) {
+  .app {
+    height: calc(100vh - 76px);
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .viewer-panel {
+    height: 100%;
+    min-height: 0;
+    align-self: stretch;
+  }
+
+  .controls {
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+/* Mantiene integralmente il comportamento già corretto su telefoni e tablet. */
+@media (max-width: 900px) {
+  .app {
+    height: auto;
+    overflow: visible;
+  }
+}

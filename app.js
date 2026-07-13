@@ -122,11 +122,9 @@ tileGroup.rotation.x = -0.10;
 tileGroup.rotation.y = 0.22;
 
 function updateDesktopTilePosition() {
-  const isDesktop = window.matchMedia("(min-width: 901px)").matches;
-
-  // Intervento diretto: su PC la mattonella viene semplicemente
-  // spostata verso l'alto. Su telefoni e tablet resta invariata.
-  tileGroup.position.y = isDesktop ? 0.34 : 0;
+  // Nessuno spostamento artificiale: la centratura viene gestita
+  // dalle corrette dimensioni del viewer desktop.
+  tileGroup.position.y = 0;
 }
 
 updateDesktopTilePosition();

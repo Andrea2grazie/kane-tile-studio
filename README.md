@@ -342,3 +342,14 @@ Prima di usare la nuova versione, esegui nel SQL Editor di Supabase:
 - nessuna modifica alla versione mobile;
 - offset desktop fisso: `tileGroup.position.y = 0.34`;
 - versione aggiornata a `Kanè Tile Studio v30`.
+
+
+## Aggiornamento v31
+
+- corretto il vero problema della centratura desktop;
+- il viewer non assume più l'altezza dell'intera colonna dei comandi;
+- il viewer occupa l'altezza disponibile dello schermo;
+- la colonna destra scorre separatamente;
+- rimossi gli spostamenti artificiali della mattonella;
+- versione mobile lasciata invariata;
+- versione aggiornata a `Kanè Tile Studio v31`.
