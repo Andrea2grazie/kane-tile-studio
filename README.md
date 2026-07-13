@@ -333,3 +333,12 @@ Prima di usare la nuova versione, esegui nel SQL Editor di Supabase:
 - nessuna modifica all'inquadratura mobile;
 - doppio `requestAnimationFrame` all'avvio per attendere il layout definitivo;
 - versione aggiornata a `Kanè Tile Studio v29`.
+
+
+## Aggiornamento v30
+
+- su PC la mattonella viene spostata direttamente verso l’alto;
+- nessuna modifica alla camera;
+- nessuna modifica alla versione mobile;
+- offset desktop fisso: `tileGroup.position.y = 0.34`;
+- versione aggiornata a `Kanè Tile Studio v30`.

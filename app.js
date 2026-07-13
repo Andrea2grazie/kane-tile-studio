@@ -120,6 +120,16 @@ scene.add(fill);
 const tileGroup = new THREE.Group();
 tileGroup.rotation.x = -0.10;
 tileGroup.rotation.y = 0.22;
+
+function updateDesktopTilePosition() {
+  const isDesktop = window.matchMedia("(min-width: 901px)").matches;
+
+  // Intervento diretto: su PC la mattonella viene semplicemente
+  // spostata verso l'alto. Su telefoni e tablet resta invariata.
+  tileGroup.position.y = isDesktop ? 0.34 : 0;
+}
+
+updateDesktopTilePosition();
 scene.add(tileGroup);
 
 
@@ -1859,20 +1869,11 @@ function fitCameraToTile() {
     Math.max(distanceForHeight, distanceForWidth) * framingMultiplier
   );
 
-  const target = center.clone();
-
-  // Nel viewer desktop la colonna è molto larga e alta: abbassando
-  // leggermente il punto osservato, la mattonella sale visivamente
-  // verso il centro. Su mobile non viene applicato alcun offset.
-  if (isDesktop) {
-    target.y -= size.y * 0.20;
-  }
-
-  controls.target.copy(target);
+  controls.target.copy(center);
   camera.position.set(
-    target.x + distance * 0.10,
-    target.y + distance * 0.07,
-    target.z + distance
+    center.x + distance * 0.10,
+    center.y + distance * 0.07,
+    center.z + distance
   );
 
   camera.near = 0.01;
@@ -1888,6 +1889,7 @@ function resize() {
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
+  updateDesktopTilePosition();
 }
 window.addEventListener("resize", resize);
 if ("ResizeObserver" in window) {
