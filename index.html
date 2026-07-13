@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Kanè Tile Studio v31 — Configuratore 3D</title>
+  <title>Kanè Tile Studio v34 — Configuratore 3D</title>
   <meta name="description" content="Bozza di configuratore 3D per mattonelle personalizzate." />
   <link rel="stylesheet" href="./style.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -22,7 +22,7 @@
     <div class="brand">
       <span class="brand-mark">K</span>
       <div>
-        <strong>Kanè Tile Studio <span class="version-badge">v31</span></strong>
+        <strong>Kanè Tile Studio <span class="version-badge">v34</span></strong>
         <small>Disegna la tua mattonella</small>
       </div>
     </div>
@@ -148,32 +148,72 @@
               <label>Font</label>
 
               <div id="fontPicker" class="font-picker">
-                <button id="fontPickerButton" class="font-picker-button font-modern"
+                <button id="fontPickerButton" class="font-picker-button font-montserrat"
                         type="button" aria-expanded="false">
-                  <span id="fontPickerLabel">Moderno</span>
+                  <span id="fontPickerLabel">Montserrat</span>
                   <span class="font-picker-arrow">⌄</span>
                 </button>
 
                 <div id="fontPickerMenu" class="font-picker-menu" hidden>
-                  <button class="font-option font-modern active"
+                  <button class="font-option font-montserrat active"
                           type="button" data-font="helvetiker"
-                          data-label="Moderno">Moderno</button>
+                          data-label="Montserrat">Montserrat</button>
 
-                  <button class="font-option font-elegant"
+                  <button class="font-option font-playfair"
                           type="button" data-font="optimer"
-                          data-label="Elegante">Elegante</button>
+                          data-label="Playfair Display">Playfair Display</button>
 
-                  <button class="font-option font-classic"
+                  <button class="font-option font-cinzel"
                           type="button" data-font="gentilis"
-                          data-label="Classico">Classico</button>
+                          data-label="Cinzel">Cinzel</button>
 
-                  <button class="font-option font-serif"
+                  <button class="font-option font-cormorant"
                           type="button" data-font="droid_serif"
-                          data-label="Serif">Serif</button>
+                          data-label="Cormorant">Cormorant</button>
 
-                  <button class="font-option font-cursive"
+                  <button class="font-option font-pacifico"
                           type="button" data-font="cursive"
-                          data-label="Corsivo">Corsivo</button>
+                          data-label="Pacifico">Pacifico</button>
+
+                  <button class="font-option font-bebas"
+                          type="button" data-font="bebas"
+                          data-label="Bebas Neue">Bebas Neue</button>
+
+                  <button class="font-option font-oswald"
+                          type="button" data-font="oswald"
+                          data-label="Oswald">Oswald</button>
+
+                  <button class="font-option font-raleway"
+                          type="button" data-font="raleway"
+                          data-label="Raleway">Raleway</button>
+
+                  <button class="font-option font-abril"
+                          type="button" data-font="abril"
+                          data-label="Abril Fatface">Abril Fatface</button>
+
+                  <button class="font-option font-lobster"
+                          type="button" data-font="lobster"
+                          data-label="Lobster">Lobster</button>
+
+                  <button class="font-option font-dancing"
+                          type="button" data-font="dancing"
+                          data-label="Dancing Script">Dancing Script</button>
+
+                  <button class="font-option font-greatvibes"
+                          type="button" data-font="greatvibes"
+                          data-label="Great Vibes">Great Vibes</button>
+
+                  <button class="font-option font-caveat"
+                          type="button" data-font="caveat"
+                          data-label="Caveat">Caveat</button>
+
+                  <button class="font-option font-marker"
+                          type="button" data-font="marker"
+                          data-label="Permanent Marker">Permanent Marker</button>
+
+                  <button class="font-option font-barlow"
+                          type="button" data-font="barlow"
+                          data-label="Barlow Condensed">Barlow Condensed</button>
                 </div>
               </div>
             </div>

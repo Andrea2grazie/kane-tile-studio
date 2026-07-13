@@ -353,3 +353,27 @@ Prima di usare la nuova versione, esegui nel SQL Editor di Supabase:
 - rimossi gli spostamenti artificiali della mattonella;
 - versione mobile lasciata invariata;
 - versione aggiornata a `Kanè Tile Studio v31`.
+
+
+## Aggiornamento v34 — 15 font
+
+Aggiunti 15 font:
+
+- Montserrat
+- Playfair Display
+- Cinzel
+- Cormorant Garamond
+- Pacifico
+- Bebas Neue
+- Oswald
+- Raleway
+- Abril Fatface
+- Lobster
+- Dancing Script
+- Great Vibes
+- Caveat
+- Permanent Marker
+- Barlow Condensed
+
+Ogni voce del selettore viene mostrata nel proprio carattere.
+Il configuratore attende il caricamento del font prima di generare la scritta 3D.

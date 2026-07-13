@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Barlow+Condensed:wght@500;600;700&family=Bebas+Neue&family=Caveat:wght@500;600;700&family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:wght@500;600;700&family=Dancing+Script:wght@500;600;700&family=Great+Vibes&family=Lobster&family=Montserrat:wght@500;600;700&family=Oswald:wght@500;600;700&family=Pacifico&family=Permanent+Marker&family=Playfair+Display:wght@500;600;700&family=Raleway:wght@500;600;700&display=swap");
+
 
 :root {
   --ink: #202421;
@@ -796,6 +798,9 @@ select {
   border-radius: 12px;
   background: white;
   box-shadow: 0 16px 40px rgba(20, 28, 25, .18);
+  max-height: 420px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .font-option {
@@ -816,31 +821,93 @@ select {
   background: #eeebe2;
 }
 
-.font-modern {
-  font-family: "Helvetica Neue", Arial, sans-serif;
+.font-montserrat {
+  font-family: "Montserrat", sans-serif;
   font-weight: 700;
 }
 
-.font-elegant {
-  font-family: "Avenir Next", "Trebuchet MS", sans-serif;
-  font-weight: 500;
-  letter-spacing: .02em;
-}
-
-.font-classic {
-  font-family: Georgia, "Times New Roman", serif;
+.font-playfair {
+  font-family: "Playfair Display", serif;
   font-weight: 700;
 }
 
-.font-serif {
-  font-family: "Palatino Linotype", Palatino, Georgia, serif;
+.font-cinzel {
+  font-family: "Cinzel", serif;
+  font-weight: 600;
+  letter-spacing: .03em;
+}
+
+.font-cormorant {
+  font-family: "Cormorant Garamond", serif;
+  font-weight: 700;
+  font-size: 20px;
+}
+
+.font-pacifico {
+  font-family: "Pacifico", cursive;
+  font-weight: 400;
+  font-size: 19px;
+}
+
+.font-bebas {
+  font-family: "Bebas Neue", sans-serif;
+  font-weight: 400;
+  letter-spacing: .06em;
+  font-size: 20px;
+}
+
+.font-oswald {
+  font-family: "Oswald", sans-serif;
   font-weight: 600;
 }
 
-.font-cursive {
-  font-family: "Brush Script MT", "Segoe Script", "Apple Chancery", cursive;
+.font-raleway {
+  font-family: "Raleway", sans-serif;
+  font-weight: 700;
+  letter-spacing: .03em;
+}
+
+.font-abril {
+  font-family: "Abril Fatface", serif;
+  font-weight: 400;
+  font-size: 19px;
+}
+
+.font-lobster {
+  font-family: "Lobster", cursive;
+  font-weight: 400;
+  font-size: 20px;
+}
+
+.font-dancing {
+  font-family: "Dancing Script", cursive;
+  font-weight: 700;
   font-size: 21px;
-  font-weight: 500;
+}
+
+.font-greatvibes {
+  font-family: "Great Vibes", cursive;
+  font-weight: 400;
+  font-size: 23px;
+}
+
+.font-caveat {
+  font-family: "Caveat", cursive;
+  font-weight: 700;
+  font-size: 22px;
+}
+
+.font-marker {
+  font-family: "Permanent Marker", cursive;
+  font-weight: 400;
+  font-size: 18px;
+}
+
+.font-barlow {
+  font-family: "Barlow Condensed", sans-serif;
+  font-weight: 700;
+  font-size: 19px;
+  letter-spacing: .04em;
 }
 
 
