@@ -513,12 +513,36 @@ function buildHeightmapRelief(w, h, material, baseTop) {
 
 
 const LOCAL_FONT_STACKS = {
-  helvetiker: '"Helvetica Neue", Arial, sans-serif',
-  optimer: '"Avenir Next", "Trebuchet MS", sans-serif',
-  gentilis: 'Georgia, "Times New Roman", serif',
-  droid_serif: '"Palatino Linotype", Palatino, Georgia, serif',
-  cursive: '"Brush Script MT", "Segoe Script", "Apple Chancery", cursive'
+  helvetiker: '"Montserrat", sans-serif',
+  optimer: '"Playfair Display", serif',
+  gentilis: '"Cinzel", serif',
+  droid_serif: '"Cormorant Garamond", serif',
+  cursive: '"Pacifico", cursive',
+  bebas: '"Bebas Neue", sans-serif',
+  oswald: '"Oswald", sans-serif',
+  raleway: '"Raleway", sans-serif',
+  abril: '"Abril Fatface", serif',
+  lobster: '"Lobster", cursive',
+  dancing: '"Dancing Script", cursive',
+  greatvibes: '"Great Vibes", cursive',
+  caveat: '"Caveat", cursive',
+  marker: '"Permanent Marker", cursive',
+  barlow: '"Barlow Condensed", sans-serif'
 };
+
+async function ensureSelectedFontLoaded(fontKey) {
+  const fontStack =
+    LOCAL_FONT_STACKS[fontKey] || LOCAL_FONT_STACKS.helvetiker;
+
+  if (!document.fonts?.load) return;
+
+  try {
+    await document.fonts.load(`700 72px ${fontStack}`);
+    await document.fonts.ready;
+  } catch (error) {
+    console.warn("Font non caricato, uso fallback:", error);
+  }
+}
 
 function createTextRaster(text, fontKey, requestedSizeMm, alignment) {
   const canvas = document.createElement("canvas");
@@ -1021,7 +1045,7 @@ document.querySelector("#tileText").addEventListener("input", event => {
   textApplyStatus.className = "text-apply-status";
 });
 
-applyTextButton.addEventListener("click", () => {
+applyTextButton.addEventListener("click", async () => {
   const value = state.tileText.trim();
 
   if (!value) {
@@ -1032,8 +1056,16 @@ applyTextButton.addEventListener("click", () => {
     return;
   }
 
+  applyTextButton.disabled = true;
+  applyTextButton.textContent = "Caricamento font…";
+
+  await ensureSelectedFontLoaded(state.textFont);
+
   state.appliedText = value;
   rebuildTile();
+
+  applyTextButton.disabled = false;
+  applyTextButton.textContent = "Applica scritta";
 
   textApplyStatus.textContent =
     "Scritta 3D applicata centralmente.";
@@ -1047,11 +1079,21 @@ const fontPickerLabel = document.querySelector("#fontPickerLabel");
 const fontOptions = document.querySelectorAll(".font-option");
 
 const FONT_CLASS_NAMES = [
-  "font-modern",
-  "font-elegant",
-  "font-classic",
-  "font-serif",
-  "font-cursive"
+  "font-montserrat",
+  "font-playfair",
+  "font-cinzel",
+  "font-cormorant",
+  "font-pacifico",
+  "font-bebas",
+  "font-oswald",
+  "font-raleway",
+  "font-abril",
+  "font-lobster",
+  "font-dancing",
+  "font-greatvibes",
+  "font-caveat",
+  "font-marker",
+  "font-barlow"
 ];
 
 function closeFontPicker() {
@@ -1073,7 +1115,7 @@ fontPickerButton.addEventListener("click", () => {
 });
 
 fontOptions.forEach(option => {
-  option.addEventListener("click", () => {
+  option.addEventListener("click", async () => {
     state.textFont = option.dataset.font;
 
     fontOptions.forEach(item => item.classList.remove("active"));
@@ -1093,6 +1135,8 @@ fontOptions.forEach(option => {
 
     fontPickerLabel.textContent = option.dataset.label;
     closeFontPicker();
+
+    await ensureSelectedFontLoaded(state.textFont);
 
     if (state.appliedText) {
       rebuildTile();
@@ -1905,6 +1949,7 @@ function animate() {
 
 resize();
 updateServiceVisibility();
+ensureSelectedFontLoaded(state.textFont);
 rebuildTile();
 
 requestAnimationFrame(() => {
