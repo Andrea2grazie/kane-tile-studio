@@ -78,7 +78,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setClearColor(0x000000, 0);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.82;
+renderer.toneMappingExposure = 0.92;
 
 viewer.appendChild(renderer.domElement);
 
@@ -103,16 +103,20 @@ controls.addEventListener("start", () => {
   hasUserAdjustedCamera = true;
 });
 
-const ambient = new THREE.AmbientLight(0xffffff, 1.18);
+const ambient = new THREE.AmbientLight(0xffffff, 0.92);
 scene.add(ambient);
 
-const key = new THREE.DirectionalLight(0xfff5e8, 2.15);
-key.position.set(2.4, 3.8, 4.6);
+const key = new THREE.DirectionalLight(0xfff1de, 2.65);
+key.position.set(1.8, 4.2, 3.6);
 scene.add(key);
 
-const fill = new THREE.DirectionalLight(0xdfe9ff, 0.58);
+const fill = new THREE.DirectionalLight(0xdfe9ff, 0.38);
 fill.position.set(-3, 1.5, 3);
 scene.add(fill);
+
+const glazeRim = new THREE.DirectionalLight(0xffffff, 1.15);
+glazeRim.position.set(-2.8, -0.8, 2.6);
+scene.add(glazeRim);
 
 
 
@@ -291,15 +295,15 @@ const ceramicRoughnessTexture = createCeramicRoughnessTexture();
 
 function buildCeramicTopSurface(w, h, glaze, glazeColor, baseTop) {
   const isMobile = window.matchMedia("(max-width: 900px)").matches;
-  const longSegments = isMobile ? 120 : 210;
+  const longSegments = isMobile ? 150 : 260;
   const aspect = w / h;
 
   const segmentsX = aspect >= 1
     ? longSegments
-    : Math.max(80, Math.round(longSegments * aspect));
+    : Math.max(100, Math.round(longSegments * aspect));
 
   const segmentsY = aspect >= 1
-    ? Math.max(80, Math.round(longSegments / aspect))
+    ? Math.max(100, Math.round(longSegments / aspect))
     : longSegments;
 
   const geometry = new THREE.PlaneGeometry(
@@ -310,6 +314,7 @@ function buildCeramicTopSurface(w, h, glaze, glazeColor, baseTop) {
   );
 
   const positions = geometry.attributes.position;
+  const colors = new Float32Array(positions.count * 3);
   const maxSide = Math.max(w, h);
 
   for (let i = 0; i < positions.count; i++) {
@@ -319,75 +324,96 @@ function buildCeramicTopSurface(w, h, glaze, glazeColor, baseTop) {
     const u = x / w + 0.5;
     const v = y / h + 0.5;
 
-    // Ondulazioni ampie tipiche di una superficie ceramica non industriale.
+    // Ondulazioni ampie e chiaramente percepibili con luce frontale e radente.
     const broadWave =
-      Math.sin(u * Math.PI * 2.2 + 0.35) * 0.00145 +
-      Math.cos(v * Math.PI * 2.0 - 0.55) * 0.00125 +
-      Math.sin((u + v) * Math.PI * 2.8) * 0.00075;
+      Math.sin(u * Math.PI * 2.15 + 0.45) * 0.0035 +
+      Math.cos(v * Math.PI * 2.35 - 0.30) * 0.0030 +
+      Math.sin((u + v) * Math.PI * 3.2) * 0.0018;
 
-    // Irregolarità più fini, appena percepibili con luce radente.
+    // Irregolarità medie e fini tipiche dello smalto.
+    const mediumWave =
+      Math.sin(u * Math.PI * 8.5 + v * 2.0) *
+      Math.cos(v * Math.PI * 7.0) * 0.0010;
+
     const fineWave =
-      Math.sin(u * Math.PI * 17.0) *
-      Math.cos(v * Math.PI * 15.0) * 0.00024 +
-      Math.sin((u * 31.0 + v * 23.0) * Math.PI) * 0.00010;
+      Math.sin(u * Math.PI * 26.0) *
+      Math.cos(v * Math.PI * 23.0) * 0.00035 +
+      Math.sin((u * 43.0 + v * 31.0) * Math.PI) * 0.00018;
 
-    // Leggerissima bombatura centrale.
+    // Bombatura centrale più leggibile.
     const dx = (u - 0.5) * 2;
     const dy = (v - 0.5) * 2;
     const radial = Math.max(0, 1 - (dx * dx + dy * dy));
-    const crown = radial * 0.00115;
+    const crown = radial * 0.0027;
 
     const displacement =
-      (broadWave + fineWave + crown) *
-      THREE.MathUtils.clamp(maxSide, 0.7, 2.0);
+      (broadWave + mediumWave + fineWave + crown) *
+      THREE.MathUtils.clamp(maxSide, 0.8, 1.8);
 
     positions.setZ(i, displacement);
+
+    // Variazione cromatica dello smalto: piccole differenze visibili
+    // che evitano l'effetto colore piatto uniforme.
+    const glazeVariation =
+      Math.sin(u * Math.PI * 3.0) * 0.018 +
+      Math.cos(v * Math.PI * 2.6) * 0.014 +
+      Math.sin((u + v) * Math.PI * 5.0) * 0.010;
+
+    const vertexColor = glazeColor.clone();
+    vertexColor.offsetHSL(
+      0,
+      glazeVariation * 0.18,
+      glazeVariation
+    );
+
+    colors[i * 3] = vertexColor.r;
+    colors[i * 3 + 1] = vertexColor.g;
+    colors[i * 3 + 2] = vertexColor.b;
   }
+
+  geometry.setAttribute(
+    "color",
+    new THREE.BufferAttribute(colors, 3)
+  );
 
   geometry.computeVertexNormals();
   geometry.normalizeNormals();
 
   const alphaTexture = createRoundedAlphaTexture(w, h);
 
-  const semiGlossRoughness = THREE.MathUtils.clamp(
-    glaze.roughness * 0.54 + 0.18,
-    0.23,
-    0.48
-  );
-
+  // Semilucido netto: riflesso visibile ma non effetto plastica.
   const material = new THREE.MeshPhysicalMaterial({
-    color: glazeColor.clone(),
-    roughness: semiGlossRoughness,
+    color: 0xffffff,
+    vertexColors: true,
+    roughness: 0.31,
     roughnessMap: ceramicRoughnessTexture,
     metalness: 0,
-    clearcoat: THREE.MathUtils.clamp(
-      Math.max(glaze.clearcoat, 0.52),
-      0.52,
-      0.88
-    ),
-    clearcoatRoughness: 0.20,
-    sheen: Math.max(glaze.sheen, 0.12),
+    clearcoat: 0.78,
+    clearcoatRoughness: 0.17,
+    clearcoatNormalMap: ceramicNormalTexture,
+    clearcoatNormalScale: new THREE.Vector2(0.055, 0.055),
+    sheen: 0.18,
     sheenColor: glazeColor.clone().lerp(
       new THREE.Color(0xffffff),
-      0.16
+      0.22
     ),
-    sheenRoughness: 0.62,
-    reflectivity: 0.34,
-    ior: 1.49,
+    sheenRoughness: 0.55,
+    reflectivity: 0.42,
+    ior: 1.50,
     normalMap: ceramicNormalTexture,
-    normalScale: new THREE.Vector2(0.030, 0.030),
+    normalScale: new THREE.Vector2(0.065, 0.065),
     alphaMap: alphaTexture,
     transparent: true,
     alphaTest: 0.18,
     side: THREE.DoubleSide,
-    envMapIntensity: 0.56,
+    envMapIntensity: 0.84,
     polygonOffset: true,
     polygonOffsetFactor: -1,
     polygonOffsetUnits: -1
   });
 
   const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.z = baseTop + 0.0016;
+  mesh.position.z = baseTop + 0.0024;
   mesh.renderOrder = 2;
   mesh.userData.disposableTexture = alphaTexture;
 

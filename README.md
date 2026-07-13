@@ -366,3 +366,15 @@ Prima di usare la nuova versione, esegui nel SQL Editor di Supabase:
 - corpo laterale leggermente più opaco della faccia smaltata;
 - illuminazione riequilibrata per evidenziare le imperfezioni;
 - versione aggiornata a `Kanè Tile Studio v32`.
+
+
+## Aggiornamento v33 — effetto ceramica realmente visibile
+
+- displacement aumentato e chiaramente percepibile;
+- bombatura centrale più evidente;
+- ondulazioni ampie, medie e fini;
+- variazioni cromatiche dello smalto tramite vertex colors;
+- clearcoat semilucido più marcato;
+- normal map e clearcoat normal map più forti;
+- illuminazione radente aggiuntiva per mostrare le irregolarità;
+- versione aggiornata a `Kanè Tile Studio v33`.
