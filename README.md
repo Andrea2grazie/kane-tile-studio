@@ -353,3 +353,16 @@ Prima di usare la nuova versione, esegui nel SQL Editor di Supabase:
 - rimossi gli spostamenti artificiali della mattonella;
 - versione mobile lasciata invariata;
 - versione aggiornata a `Kanè Tile Studio v31`.
+
+
+## Aggiornamento v32 — materiale ceramico realistico
+
+- aggiunta una superficie superiore separata e ad alta suddivisione;
+- micro-displacement geometrico reale;
+- leggere ondulazioni artigianali e bombatura centrale;
+- rugosità procedurale non uniforme;
+- smalto semilucido con clearcoat più naturale;
+- riflessi meno plastici e più morbidi;
+- corpo laterale leggermente più opaco della faccia smaltata;
+- illuminazione riequilibrata per evidenziare le imperfezioni;
+- versione aggiornata a `Kanè Tile Studio v32`.
