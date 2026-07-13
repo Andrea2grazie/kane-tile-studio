@@ -78,7 +78,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.setClearColor(0x000000, 0);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.92;
+renderer.toneMappingExposure = 0.82;
 
 viewer.appendChild(renderer.domElement);
 
@@ -103,20 +103,16 @@ controls.addEventListener("start", () => {
   hasUserAdjustedCamera = true;
 });
 
-const ambient = new THREE.AmbientLight(0xffffff, 0.92);
+const ambient = new THREE.AmbientLight(0xffffff, 1.7);
 scene.add(ambient);
 
-const key = new THREE.DirectionalLight(0xfff1de, 2.65);
-key.position.set(1.8, 4.2, 3.6);
+const key = new THREE.DirectionalLight(0xffffff, 1.8);
+key.position.set(2.8, 3.5, 4);
 scene.add(key);
 
-const fill = new THREE.DirectionalLight(0xdfe9ff, 0.38);
+const fill = new THREE.DirectionalLight(0xdfe9ff, 0.75);
 fill.position.set(-3, 1.5, 3);
 scene.add(fill);
-
-const glazeRim = new THREE.DirectionalLight(0xffffff, 1.15);
-glazeRim.position.set(-2.8, -0.8, 2.6);
-scene.add(glazeRim);
 
 
 
@@ -201,225 +197,6 @@ function createCrackleTexture(size = 512) {
   return t;
 }
 const ceramicCrackleTexture = createCrackleTexture();
-
-function createCeramicRoughnessTexture(size = 512) {
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-
-  const ctx = canvas.getContext("2d");
-  const image = ctx.createImageData(size, size);
-  const data = image.data;
-
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const i = (y * size + x) * 4;
-
-      const broad =
-        Math.sin(x * 0.018) * 10 +
-        Math.cos(y * 0.021) * 9 +
-        Math.sin((x + y) * 0.011) * 7;
-
-      const fine =
-        Math.sin(x * 0.17) * 3 +
-        Math.cos(y * 0.15) * 3;
-
-      const noise = (Math.random() - 0.5) * 14;
-      const value = Math.round(142 + broad + fine + noise);
-      const clamped = Math.max(85, Math.min(205, value));
-
-      data[i] = clamped;
-      data[i + 1] = clamped;
-      data[i + 2] = clamped;
-      data[i + 3] = 255;
-    }
-  }
-
-  ctx.putImageData(image, 0, 0);
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(2.2, 2.2);
-  texture.colorSpace = THREE.NoColorSpace;
-  texture.anisotropy = Math.min(
-    16,
-    renderer.capabilities.getMaxAnisotropy()
-  );
-  texture.needsUpdate = true;
-  return texture;
-}
-
-function createRoundedAlphaTexture(width, height, radiusRatio = 0.055) {
-  const canvas = document.createElement("canvas");
-  const longestSide = 1024;
-  const aspect = width / height;
-
-  if (aspect >= 1) {
-    canvas.width = longestSide;
-    canvas.height = Math.max(64, Math.round(longestSide / aspect));
-  } else {
-    canvas.height = longestSide;
-    canvas.width = Math.max(64, Math.round(longestSide * aspect));
-  }
-
-  const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  const radius = Math.min(
-    canvas.width,
-    canvas.height
-  ) * radiusRatio;
-
-  ctx.fillStyle = "#ffffff";
-  ctx.beginPath();
-  ctx.roundRect(
-    1,
-    1,
-    canvas.width - 2,
-    canvas.height - 2,
-    radius
-  );
-  ctx.fill();
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.NoColorSpace;
-  texture.minFilter = THREE.LinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.generateMipmaps = false;
-  texture.needsUpdate = true;
-  return texture;
-}
-
-const ceramicRoughnessTexture = createCeramicRoughnessTexture();
-
-function buildCeramicTopSurface(w, h, glaze, glazeColor, baseTop) {
-  const isMobile = window.matchMedia("(max-width: 900px)").matches;
-  const longSegments = isMobile ? 150 : 260;
-  const aspect = w / h;
-
-  const segmentsX = aspect >= 1
-    ? longSegments
-    : Math.max(100, Math.round(longSegments * aspect));
-
-  const segmentsY = aspect >= 1
-    ? Math.max(100, Math.round(longSegments / aspect))
-    : longSegments;
-
-  const geometry = new THREE.PlaneGeometry(
-    w * 0.988,
-    h * 0.988,
-    segmentsX,
-    segmentsY
-  );
-
-  const positions = geometry.attributes.position;
-  const colors = new Float32Array(positions.count * 3);
-  const maxSide = Math.max(w, h);
-
-  for (let i = 0; i < positions.count; i++) {
-    const x = positions.getX(i);
-    const y = positions.getY(i);
-
-    const u = x / w + 0.5;
-    const v = y / h + 0.5;
-
-    // Ondulazioni ampie e chiaramente percepibili con luce frontale e radente.
-    const broadWave =
-      Math.sin(u * Math.PI * 2.15 + 0.45) * 0.0035 +
-      Math.cos(v * Math.PI * 2.35 - 0.30) * 0.0030 +
-      Math.sin((u + v) * Math.PI * 3.2) * 0.0018;
-
-    // Irregolarità medie e fini tipiche dello smalto.
-    const mediumWave =
-      Math.sin(u * Math.PI * 8.5 + v * 2.0) *
-      Math.cos(v * Math.PI * 7.0) * 0.0010;
-
-    const fineWave =
-      Math.sin(u * Math.PI * 26.0) *
-      Math.cos(v * Math.PI * 23.0) * 0.00035 +
-      Math.sin((u * 43.0 + v * 31.0) * Math.PI) * 0.00018;
-
-    // Bombatura centrale più leggibile.
-    const dx = (u - 0.5) * 2;
-    const dy = (v - 0.5) * 2;
-    const radial = Math.max(0, 1 - (dx * dx + dy * dy));
-    const crown = radial * 0.0027;
-
-    const displacement =
-      (broadWave + mediumWave + fineWave + crown) *
-      THREE.MathUtils.clamp(maxSide, 0.8, 1.8);
-
-    positions.setZ(i, displacement);
-
-    // Variazione cromatica dello smalto: piccole differenze visibili
-    // che evitano l'effetto colore piatto uniforme.
-    const glazeVariation =
-      Math.sin(u * Math.PI * 3.0) * 0.018 +
-      Math.cos(v * Math.PI * 2.6) * 0.014 +
-      Math.sin((u + v) * Math.PI * 5.0) * 0.010;
-
-    const vertexColor = glazeColor.clone();
-    vertexColor.offsetHSL(
-      0,
-      glazeVariation * 0.18,
-      glazeVariation
-    );
-
-    colors[i * 3] = vertexColor.r;
-    colors[i * 3 + 1] = vertexColor.g;
-    colors[i * 3 + 2] = vertexColor.b;
-  }
-
-  geometry.setAttribute(
-    "color",
-    new THREE.BufferAttribute(colors, 3)
-  );
-
-  geometry.computeVertexNormals();
-  geometry.normalizeNormals();
-
-  const alphaTexture = createRoundedAlphaTexture(w, h);
-
-  // Semilucido netto: riflesso visibile ma non effetto plastica.
-  const material = new THREE.MeshPhysicalMaterial({
-    color: 0xffffff,
-    vertexColors: true,
-    roughness: 0.31,
-    roughnessMap: ceramicRoughnessTexture,
-    metalness: 0,
-    clearcoat: 0.78,
-    clearcoatRoughness: 0.17,
-    clearcoatNormalMap: ceramicNormalTexture,
-    clearcoatNormalScale: new THREE.Vector2(0.055, 0.055),
-    sheen: 0.18,
-    sheenColor: glazeColor.clone().lerp(
-      new THREE.Color(0xffffff),
-      0.22
-    ),
-    sheenRoughness: 0.55,
-    reflectivity: 0.42,
-    ior: 1.50,
-    normalMap: ceramicNormalTexture,
-    normalScale: new THREE.Vector2(0.065, 0.065),
-    alphaMap: alphaTexture,
-    transparent: true,
-    alphaTest: 0.18,
-    side: THREE.DoubleSide,
-    envMapIntensity: 0.84,
-    polygonOffset: true,
-    polygonOffsetFactor: -1,
-    polygonOffsetUnits: -1
-  });
-
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.z = baseTop + 0.0024;
-  mesh.renderOrder = 2;
-  mesh.userData.disposableTexture = alphaTexture;
-
-  return mesh;
-}
-
 
 
 const state = {
@@ -1106,30 +883,21 @@ function rebuildTile() {
 
   const ceramic = new THREE.MeshPhysicalMaterial({
     color: glazeColor,
-    roughness: THREE.MathUtils.clamp(
-      glaze.roughness * 0.72 + 0.12,
-      0.24,
-      0.68
-    ),
+    roughness: glaze.roughness,
     metalness: 0,
-    clearcoat: THREE.MathUtils.clamp(
-      glaze.clearcoat * 0.62,
-      0.10,
-      0.62
-    ),
-    clearcoatRoughness: 0.28,
-    sheen: Math.max(glaze.sheen, 0.08),
-    sheenColor: glazeColor.clone().lerp(
-      new THREE.Color(0xffffff),
-      0.12
-    ),
-    sheenRoughness: 0.74,
-    reflectivity: 0.30,
-    ior: 1.49,
+    clearcoat: glaze.clearcoat,
+    clearcoatRoughness: glaze.clearcoatRoughness,
+    sheen: glaze.sheen,
+    sheenColor: glazeColor.clone().lerp(new THREE.Color(0xffffff), 0.18),
+    sheenRoughness: 0.72,
+    reflectivity: 0.46,
+    ior: 1.52,
     normalMap: ceramicNormalTexture,
-    normalScale: new THREE.Vector2(0.025, 0.025),
-    roughnessMap: ceramicRoughnessTexture,
-    envMapIntensity: 0.38,
+    normalScale: new THREE.Vector2(0.045, 0.045),
+    roughnessMap: ceramicCrackleTexture,
+    bumpMap: ceramicCrackleTexture,
+    bumpScale: 0.0025,
+    envMapIntensity: glaze.roughness < 0.3 ? 0.78 : 0.42,
     side: THREE.DoubleSide
   });
 
@@ -1140,16 +908,6 @@ function rebuildTile() {
   tileGroup.add(base);
 
   const baseTop = thickness / 2;
-
-  // Superficie superiore separata, realmente suddivisa e deformata.
-  const ceramicTopSurface = buildCeramicTopSurface(
-    w,
-    h,
-    glaze,
-    glazeColor,
-    baseTop
-  );
-  tileGroup.add(ceramicTopSurface);
   try {
     tileGroup.add(buildStandardFrame(w, h, reliefMat, baseTop));
   } catch (frameError) {
