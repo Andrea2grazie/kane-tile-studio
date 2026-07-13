@@ -325,3 +325,11 @@ email, quantità o stato dell'ordine.
 Prima di usare la nuova versione, esegui nel SQL Editor di Supabase:
 
 `supabase/migration_v28_project_links.sql`
+
+
+## Aggiornamento v29
+
+- inquadratura iniziale desktop spostata verso il centro verticale;
+- nessuna modifica all'inquadratura mobile;
+- doppio `requestAnimationFrame` all'avvio per attendere il layout definitivo;
+- versione aggiornata a `Kanè Tile Studio v29`.

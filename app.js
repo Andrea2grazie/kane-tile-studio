@@ -1859,11 +1859,20 @@ function fitCameraToTile() {
     Math.max(distanceForHeight, distanceForWidth) * framingMultiplier
   );
 
-  controls.target.copy(center);
+  const target = center.clone();
+
+  // Nel viewer desktop la colonna è molto larga e alta: abbassando
+  // leggermente il punto osservato, la mattonella sale visivamente
+  // verso il centro. Su mobile non viene applicato alcun offset.
+  if (isDesktop) {
+    target.y -= size.y * 0.20;
+  }
+
+  controls.target.copy(target);
   camera.position.set(
-    center.x + distance * 0.10,
-    center.y + distance * 0.07,
-    center.z + distance
+    target.x + distance * 0.10,
+    target.y + distance * 0.07,
+    target.z + distance
   );
 
   camera.near = 0.01;
@@ -1898,13 +1907,17 @@ resize();
 updateServiceVisibility();
 rebuildTile();
 
-requestAnimationFrame(async () => {
-  const loadedProject = await loadPublicProjectFromUrl();
+requestAnimationFrame(() => {
+  requestAnimationFrame(async () => {
+    resize();
 
-  if (!loadedProject) {
-    fitCameraToTile();
-  }
+    const loadedProject = await loadPublicProjectFromUrl();
 
-  hasInitialCameraFrame = true;
-  animate();
+    if (!loadedProject) {
+      fitCameraToTile();
+    }
+
+    hasInitialCameraFrame = true;
+    animate();
+  });
 });
